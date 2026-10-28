@@ -9,7 +9,11 @@ import '../l10n.dart';
 /// list of items (picker) for posts with several photos/videos.
 class CobaltException implements Exception {
   final String message;
-  CobaltException(this.message);
+
+  /// True when the server could not be reached at all (wrong network, offline,
+  /// timeout). The app uses this to fall back to the backup server.
+  final bool unreachable;
+  CobaltException(this.message, {this.unreachable = false});
   @override
   String toString() => message;
 }
@@ -29,7 +33,11 @@ enum SaveMode { video, audio, mute }
 class Cobalt {
   final String server;
   final String apiKey;
-  Cobalt(this.server, {this.apiKey = ''});
+
+  /// How long to wait for the TCP connection. Kept short when a backup server
+  /// exists, so a home-only address fails fast when you are away.
+  final Duration connectTimeout;
+  Cobalt(this.server, {this.apiKey = '', this.connectTimeout = const Duration(seconds: 15)});
 
   String get _base {
     var s = server.trim();
@@ -42,14 +50,14 @@ class Cobalt {
   }
 
   HttpClient _client() => HttpClient()
-    ..connectionTimeout = const Duration(seconds: 15)
+    ..connectionTimeout = connectTimeout
     ..badCertificateCallback = (c, h, p) => true;
 
   /// Checks the server is a reachable cobalt instance; returns its version.
   Future<String> ping() async {
     final c = _client();
     try {
-      final req = await c.getUrl(Uri.parse('$_base/')).timeout(const Duration(seconds: 15));
+      final req = await c.getUrl(Uri.parse('$_base/')).timeout(connectTimeout + const Duration(seconds: 2));
       req.headers.set(HttpHeaders.acceptHeader, 'application/json');
       final res = await req.close().timeout(const Duration(seconds: 15));
       final body = await res.transform(utf8.decoder).join();
@@ -58,9 +66,9 @@ class Cobalt {
       if (v.isEmpty) throw CobaltException(tx('العنوان يعمل لكنه ليس سيرفر cobalt', 'The address works but is not a cobalt server'));
       return v;
     } on SocketException {
-      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'));
+      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'), unreachable: true);
     } on TimeoutException {
-      throw CobaltException(tx('انتهت مهلة الاتصال بالسيرفر', 'Connection to the server timed out'));
+      throw CobaltException(tx('انتهت مهلة الاتصال بالسيرفر', 'Connection to the server timed out'), unreachable: true);
     } on FormatException {
       throw CobaltException(tx('العنوان يعمل لكنه ليس سيرفر cobalt', 'The address works but is not a cobalt server'));
     } finally {
@@ -70,8 +78,10 @@ class Cobalt {
 
   Future<CobaltResult> resolve(String link, {SaveMode mode = SaveMode.video, String quality = '1080'}) async {
     final c = _client();
+    var connected = false; // a slow reply after connecting is not "unreachable"
     try {
-      final req = await c.postUrl(Uri.parse('$_base/')).timeout(const Duration(seconds: 20));
+      final req = await c.postUrl(Uri.parse('$_base/')).timeout(connectTimeout + const Duration(seconds: 5));
+      connected = true;
       req.headers
         ..set(HttpHeaders.acceptHeader, 'application/json')
         ..set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -91,7 +101,7 @@ class Cobalt {
         case 'redirect':
           final name = (j['filename'] ?? 'ra7al_${DateTime.now().millisecondsSinceEpoch}').toString();
           return CobaltResult([
-            MediaItem(url: j['url'].toString(), filename: name, type: mode == SaveMode.audio ? 'audio' : _typeOf(name)),
+            MediaItem(url: _rebase(j['url'].toString()), filename: name, type: mode == SaveMode.audio ? 'audio' : _typeOf(name)),
           ]);
         case 'picker':
           final list = (j['picker'] as List? ?? const []).whereType<Map>().toList();
@@ -101,7 +111,7 @@ class Cobalt {
             final t = (m['type'] ?? 'photo').toString();
             final ext = t == 'video' ? 'mp4' : t == 'gif' ? 'gif' : 'jpg';
             return MediaItem(
-              url: m['url'].toString(),
+              url: _rebase(m['url'].toString()),
               filename: 'ra7al_${DateTime.now().millisecondsSinceEpoch}_$i.$ext',
               type: t,
               thumb: (m['thumb'] ?? '').toString(),
@@ -109,7 +119,7 @@ class Cobalt {
           }).toList();
           if (j['audio'] != null) {
             items.add(MediaItem(
-              url: j['audio'].toString(),
+              url: _rebase(j['audio'].toString()),
               filename: (j['audioFilename'] ?? 'ra7al_audio.mp3').toString(),
               type: 'audio',
             ));
@@ -121,14 +131,28 @@ class Cobalt {
           throw CobaltException(tx('استجابة غير متوقعة من السيرفر', 'Unexpected response from the server'));
       }
     } on SocketException {
-      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'));
+      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'), unreachable: true);
     } on TimeoutException {
-      throw CobaltException(tx('السيرفر تأخر في الرد، أعد المحاولة', 'The server took too long, try again'));
+      throw CobaltException(tx('السيرفر تأخر في الرد، أعد المحاولة', 'The server took too long, try again'), unreachable: !connected);
     } on FormatException {
       throw CobaltException(tx('استجابة غير مفهومة من السيرفر', 'Unreadable response from the server'));
     } finally {
       c.close(force: true);
     }
+  }
+
+  /// cobalt builds its own download links ("tunnel" URLs) from its API_URL
+  /// setting, e.g. http://192.168.100.70:9000/tunnel?... When the app reaches
+  /// the same server through another address (Tailscale, a domain), that
+  /// home IP is unreachable, so point tunnel links at the address we used.
+  /// Links to other hosts (direct CDN redirects) are left untouched.
+  String _rebase(String url) {
+    final u = Uri.tryParse(url);
+    if (u == null || !u.path.endsWith('/tunnel')) return url;
+    final b = Uri.parse(_base);
+    if (u.scheme == b.scheme && u.host == b.host && u.port == b.port) return url;
+    final basePath = b.path.endsWith('/') ? b.path.substring(0, b.path.length - 1) : b.path;
+    return u.replace(scheme: b.scheme, host: b.host, port: b.port, path: '$basePath/tunnel').toString();
   }
 
   static String _typeOf(String name) {
