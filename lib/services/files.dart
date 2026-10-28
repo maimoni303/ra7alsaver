@@ -58,17 +58,7 @@ class FileStore {
 
   /// Streams [url] to the private folder, reporting progress 0..1 (or -1 when unknown).
   static Future<File> download(String url, String filename, void Function(double) onProgress) async {
-    final d = await dir();
-    var name = safeName(filename);
-    var target = File('${d.path}${Platform.pathSeparator}$name');
-    var n = 1;
-    while (await target.exists()) {
-      final dot = name.lastIndexOf('.');
-      final stem = dot > 0 ? name.substring(0, dot) : name;
-      final ext = dot > 0 ? name.substring(dot) : '';
-      target = File('${d.path}${Platform.pathSeparator}$stem ($n)$ext');
-      n++;
-    }
+    final target = await _uniqueTarget(await dir(), safeName(filename));
     final part = File('${target.path}.part');
     final client = HttpClient()..badCertificateCallback = (c, h, p) => true;
     try {
@@ -78,13 +68,17 @@ class FileStore {
       final total = res.contentLength;
       var got = 0;
       final sink = part.openWrite();
-      await for (final chunk in res.timeout(const Duration(seconds: 90))) {
-        sink.add(chunk);
-        got += chunk.length;
-        onProgress(total > 0 ? got / total : -1);
+      try {
+        await for (final chunk in res.timeout(const Duration(seconds: 90))) {
+          sink.add(chunk);
+          got += chunk.length;
+          onProgress(total > 0 ? got / total : -1);
+        }
+        await sink.flush();
+      } finally {
+        // Always release the handle, so a failed .part can be deleted (Windows locks open files).
+        await sink.close();
       }
-      await sink.flush();
-      await sink.close();
       if (got == 0) throw HttpException(tx('الملف فارغ', 'Empty file'));
       return await part.rename(target.path);
     } catch (_) {
@@ -95,10 +89,36 @@ class FileStore {
     }
   }
 
+  /// Returns a path in [d] named [name] that does not exist yet: "clip (1).mp4", "clip (2).mp4"…
+  static Future<File> _uniqueTarget(Directory d, String name) async {
+    var target = File('${d.path}${Platform.pathSeparator}$name');
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '';
+    var n = 1;
+    while (await target.exists() || await File('${target.path}.part').exists()) {
+      target = File('${d.path}${Platform.pathSeparator}$stem ($n)$ext');
+      n++;
+    }
+    return target;
+  }
+
+  /// Copies [src] into the private folder without overwriting an existing file.
   static Future<File> importFile(File src) async {
-    final d = await dir();
-    final dest = File('${d.path}${Platform.pathSeparator}${safeName(src.uri.pathSegments.last)}');
+    final dest = await _uniqueTarget(await dir(), safeName(src.uri.pathSegments.last));
     return src.copy(dest.path);
+  }
+
+  /// Renames [f] to [newName], keeping its extension and never overwriting another file.
+  static Future<File> rename(File f, String newName) async {
+    final old = f.uri.pathSegments.last;
+    final dot = old.lastIndexOf('.');
+    final ext = dot > 0 ? old.substring(dot) : '';
+    var n = safeName(newName);
+    if (ext.isNotEmpty && !n.toLowerCase().endsWith(ext.toLowerCase())) n = '$n$ext';
+    if (n == old) return f;
+    final dest = await _uniqueTarget(f.parent, n);
+    return f.rename(dest.path);
   }
 
   static String human(int bytes) {
