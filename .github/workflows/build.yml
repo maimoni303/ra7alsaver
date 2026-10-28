@@ -47,7 +47,7 @@ jobs:
         run: |
           set -o pipefail
           flutter build windows --release -v 2>&1 | tee build.log || {
-            grep "error C" build.log | grep -o "[^ ]*vcxproj" | sort -u | head -9 | sed 's/^/::error::/'
+            grep "error C\|error LNK\|error MSB\|CMake Error" build.log | sed 's/.*\(error [A-Z]*[0-9]*: .\{0,160\}\).*/\1/' | sort -u | head -9 | sed 's/^/::error::/'
             exit 1
           }
       - name: Package

@@ -91,13 +91,26 @@ esac
 flutter pub get >/dev/null
 
 if [ "$PLATFORM" = "windows" ]; then
-  # New MSVC (VS 2026) removed experimental coroutines (/await). Build
-  # local_auth_windows with standard C++20 coroutines instead.
-  LA=windows/flutter/ephemeral/.plugin_symlinks/local_auth_windows/windows/CMakeLists.txt
-  if [ -f "$LA" ]; then
-    sed -i 's#/await:strict##g; s#/await##g; s#cxx_std_17#cxx_std_20#g' "$LA"
-    grep -q "cxx_std_20" "$LA" || echo 'target_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_20)' >> "$LA"
-  fi
+  # New MSVC (VS 2026) removed experimental coroutines (/await). Patch the
+  # local_auth_windows sources in the pub cache to use standard C++20 coroutines.
+  python - <<'PY'
+import json, os, re, urllib.parse, urllib.request
+cfg = json.load(open(".dart_tool/package_config.json", encoding="utf-8"))
+for p in cfg["packages"]:
+    if p["name"] != "local_auth_windows":
+        continue
+    root = p["rootUri"]
+    path = urllib.request.url2pathname(urllib.parse.urlparse(root).path) if root.startswith("file:") else os.path.join(".dart_tool", root)
+    cm = os.path.join(path, "windows", "CMakeLists.txt")
+    s = open(cm, encoding="utf-8").read()
+    print("before:", [l.strip() for l in s.splitlines() if "await" in l or "cxx_std" in l])
+    s = re.sub(r"\s*/await(:strict)?", "", s)
+    s = s.replace("cxx_std_17", "cxx_std_20")
+    if "cxx_std_20" not in s:
+        s += "\ntarget_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_20)\n"
+    open(cm, "w", encoding="utf-8").write(s)
+    print("patched", cm)
+PY
 fi
 
 # App icon for this platform only.
