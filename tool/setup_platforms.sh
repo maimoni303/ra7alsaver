@@ -90,6 +90,16 @@ esac
 
 flutter pub get >/dev/null
 
+if [ "$PLATFORM" = "windows" ]; then
+  # New MSVC (VS 2026) removed experimental coroutines (/await). Build
+  # local_auth_windows with standard C++20 coroutines instead.
+  LA=windows/flutter/ephemeral/.plugin_symlinks/local_auth_windows/windows/CMakeLists.txt
+  if [ -f "$LA" ]; then
+    sed -i 's#/await:strict##g; s#/await##g; s#cxx_std_17#cxx_std_20#g' "$LA"
+    grep -q "cxx_std_20" "$LA" || echo 'target_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_20)' >> "$LA"
+  fi
+fi
+
 # App icon for this platform only.
 {
   echo "flutter_launcher_icons:"
