@@ -16,7 +16,7 @@ jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -37,7 +37,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -55,7 +55,7 @@ jobs:
           mkdir -p dist
           cd build/windows/x64/runner/Release
           7z a -tzip "$GITHUB_WORKSPACE/dist/RA7AL-SAVER-Windows.zip" . >/dev/null
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows
           path: dist/RA7AL-SAVER-Windows.zip
@@ -64,7 +64,7 @@ jobs:
     needs: analyze
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -79,7 +79,7 @@ jobs:
           cp -R "$APP" "dmg/RA7AL SAVER.app"
           ln -s /Applications dmg/Applications
           hdiutil create -volname "RA7AL SAVER" -srcfolder dmg -ov -format UDZO dist/RA7AL-SAVER-macOS.dmg
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: macos
           path: dist/RA7AL-SAVER-macOS.dmg
@@ -88,7 +88,7 @@ jobs:
     needs: analyze
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -100,7 +100,7 @@ jobs:
           mkdir -p dist Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
           zip -qry dist/RA7AL-SAVER-iPhone-unsigned.ipa Payload
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ios
           path: dist/RA7AL-SAVER-iPhone-unsigned.ipa
@@ -109,8 +109,8 @@ jobs:
     needs: analyze
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -141,7 +141,7 @@ jobs:
             --target "${{ github.sha }}" \
             --title "RA7AL SAVER — أندرويد" \
             --notes "نزّل الملف على الجوال وافتحه، واسمح بالتثبيت من مصادر غير معروفة إذا طُلب منك."
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: android
           path: dist/RA7AL-SAVER-Android.apk
@@ -150,7 +150,7 @@ jobs:
     needs: [windows, macos, ios, android]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
