@@ -43,7 +43,13 @@ jobs:
           channel: stable
           cache: true
       - run: bash tool/setup_platforms.sh windows
-      - run: flutter build windows --release
+      - name: Build Windows
+        run: |
+          set -o pipefail
+          flutter build windows --release 2>&1 | tee build.log || {
+            grep -iE "error|failed|exception" build.log | tail -25 | sed 's/^/::error::/'
+            exit 1
+          }
       - name: Package
         run: |
           mkdir -p dist
