@@ -86,7 +86,12 @@ class _FilesPageState extends State<FilesPage> {
             ],
           ),
         );
-        if (name != null && name.trim().isNotEmpty) await s.renameFile(f, name);
+        if (name != null && name.trim().isNotEmpty) {
+          final ok = await s.renameFile(f, name);
+          if (!ok && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tx('تعذّرت إعادة التسمية', 'Could not rename'))));
+          }
+        }
       case 'delete':
         final ok = await showDialog<bool>(
           context: context,
@@ -99,7 +104,13 @@ class _FilesPageState extends State<FilesPage> {
             ],
           ),
         );
-        if (ok == true) await s.deleteFile(f);
+        if (ok == true) {
+          final deleted = await s.deleteFile(f);
+          if (!deleted && mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(tx('تعذّر حذف الملف. أغلقه إن كان مفتوحاً وأعد المحاولة', 'Could not delete the file. Close it if it is open and try again'))));
+          }
+        }
     }
   }
 
