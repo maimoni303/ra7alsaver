@@ -47,7 +47,7 @@ jobs:
         run: |
           set -o pipefail
           flutter build windows --release 2>&1 | tee build.log || {
-            tail -60 build.log | sed 's/^/::error::/'
+            grep -iE "error|fatal|cannot|unresolved|not found" build.log | grep -v "Warning" | head -9 | sed 's/^/::error::/'
             exit 1
           }
       - name: Package
