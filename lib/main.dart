@@ -45,10 +45,11 @@ class _SaverAppState extends State<SaverApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  // Lock "My files" again whenever the app goes to the background.
+  // Lock "My files" again whenever the app goes to the background
+  // (phones report "paused"; desktop windows that are minimised report "hidden").
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.paused) context.read<SaverState>().relock();
+    if (s == AppLifecycleState.paused || s == AppLifecycleState.hidden) context.read<SaverState>().relock();
   }
 
   @override
