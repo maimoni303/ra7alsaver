@@ -1,0 +1,19 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+*.iml
+.idea/
+.vscode/
+.DS_Store
+# Native folders are generated in CI by tool/setup_platforms.sh
+/ios/
+/macos/
+/windows/
+/android/
+/linux/
+/web/
+/test/
+dist/

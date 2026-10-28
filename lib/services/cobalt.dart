@@ -1,0 +1,157 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import '../l10n.dart';
+
+/// Client for a self-hosted cobalt instance (https://github.com/imputnet/cobalt).
+/// The app sends a public link; cobalt answers with a direct file URL, or a
+/// list of items (picker) for posts with several photos/videos.
+class CobaltException implements Exception {
+  final String message;
+  CobaltException(this.message);
+  @override
+  String toString() => message;
+}
+
+class MediaItem {
+  final String url, filename, type, thumb; // type: video | photo | gif | audio
+  const MediaItem({required this.url, required this.filename, required this.type, this.thumb = ''});
+}
+
+class CobaltResult {
+  final List<MediaItem> items;
+  const CobaltResult(this.items);
+}
+
+enum SaveMode { video, audio, mute }
+
+class Cobalt {
+  final String server;
+  final String apiKey;
+  Cobalt(this.server, {this.apiKey = ''});
+
+  String get _base {
+    var s = server.trim();
+    if (s.isEmpty) throw CobaltException(tx('أضف عنوان سيرفر التحميل من الإعدادات أولاً', 'Add the download server address in Settings first'));
+    if (!s.startsWith('http://') && !s.startsWith('https://')) s = 'http://$s';
+    while (s.endsWith('/')) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
+  HttpClient _client() => HttpClient()
+    ..connectionTimeout = const Duration(seconds: 15)
+    ..badCertificateCallback = (c, h, p) => true;
+
+  /// Checks the server is a reachable cobalt instance; returns its version.
+  Future<String> ping() async {
+    final c = _client();
+    try {
+      final req = await c.getUrl(Uri.parse('$_base/')).timeout(const Duration(seconds: 15));
+      req.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      final res = await req.close().timeout(const Duration(seconds: 15));
+      final body = await res.transform(utf8.decoder).join();
+      final j = jsonDecode(body);
+      final v = j is Map && j['cobalt'] is Map ? (j['cobalt']['version'] ?? '').toString() : '';
+      if (v.isEmpty) throw CobaltException(tx('العنوان يعمل لكنه ليس سيرفر cobalt', 'The address works but is not a cobalt server'));
+      return v;
+    } on SocketException {
+      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'));
+    } on TimeoutException {
+      throw CobaltException(tx('انتهت مهلة الاتصال بالسيرفر', 'Connection to the server timed out'));
+    } on FormatException {
+      throw CobaltException(tx('العنوان يعمل لكنه ليس سيرفر cobalt', 'The address works but is not a cobalt server'));
+    } finally {
+      c.close(force: true);
+    }
+  }
+
+  Future<CobaltResult> resolve(String link, {SaveMode mode = SaveMode.video, String quality = '1080'}) async {
+    final c = _client();
+    try {
+      final req = await c.postUrl(Uri.parse('$_base/')).timeout(const Duration(seconds: 20));
+      req.headers
+        ..set(HttpHeaders.acceptHeader, 'application/json')
+        ..set(HttpHeaders.contentTypeHeader, 'application/json');
+      if (apiKey.isNotEmpty) req.headers.set(HttpHeaders.authorizationHeader, 'Api-Key $apiKey');
+      req.write(jsonEncode({
+        'url': link.trim(),
+        'videoQuality': quality,
+        'downloadMode': mode == SaveMode.audio ? 'audio' : mode == SaveMode.mute ? 'mute' : 'auto',
+        'audioFormat': 'mp3',
+        'filenameStyle': 'pretty',
+      }));
+      final res = await req.close().timeout(const Duration(seconds: 60));
+      final body = await res.transform(utf8.decoder).join();
+      final j = jsonDecode(body) as Map<String, dynamic>;
+      switch (j['status']) {
+        case 'tunnel':
+        case 'redirect':
+          final name = (j['filename'] ?? 'ra7al_${DateTime.now().millisecondsSinceEpoch}').toString();
+          return CobaltResult([
+            MediaItem(url: j['url'].toString(), filename: name, type: mode == SaveMode.audio ? 'audio' : _typeOf(name)),
+          ]);
+        case 'picker':
+          final list = (j['picker'] as List? ?? const []).whereType<Map>().toList();
+          var i = 0;
+          final items = list.map((m) {
+            i++;
+            final t = (m['type'] ?? 'photo').toString();
+            final ext = t == 'video' ? 'mp4' : t == 'gif' ? 'gif' : 'jpg';
+            return MediaItem(
+              url: m['url'].toString(),
+              filename: 'ra7al_${DateTime.now().millisecondsSinceEpoch}_$i.$ext',
+              type: t,
+              thumb: (m['thumb'] ?? '').toString(),
+            );
+          }).toList();
+          if (j['audio'] != null) {
+            items.add(MediaItem(
+              url: j['audio'].toString(),
+              filename: (j['audioFilename'] ?? 'ra7al_audio.mp3').toString(),
+              type: 'audio',
+            ));
+          }
+          return CobaltResult(items);
+        case 'error':
+          throw CobaltException(_errorText(j['error'] is Map ? (j['error']['code'] ?? '').toString() : ''));
+        default:
+          throw CobaltException(tx('استجابة غير متوقعة من السيرفر', 'Unexpected response from the server'));
+      }
+    } on SocketException {
+      throw CobaltException(tx('تعذّر الوصول إلى السيرفر. تأكد من العنوان وأنك على نفس الشبكة', 'Cannot reach the server. Check the address and that you are on the same network'));
+    } on TimeoutException {
+      throw CobaltException(tx('السيرفر تأخر في الرد، أعد المحاولة', 'The server took too long, try again'));
+    } on FormatException {
+      throw CobaltException(tx('استجابة غير مفهومة من السيرفر', 'Unreadable response from the server'));
+    } finally {
+      c.close(force: true);
+    }
+  }
+
+  static String _typeOf(String name) {
+    final n = name.toLowerCase();
+    if (n.endsWith('.mp3') || n.endsWith('.m4a') || n.endsWith('.opus') || n.endsWith('.ogg') || n.endsWith('.wav')) {
+      return 'audio';
+    }
+    if (n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png') || n.endsWith('.webp')) return 'photo';
+    if (n.endsWith('.gif')) return 'gif';
+    return 'video';
+  }
+
+  static String _errorText(String code) {
+    if (code.contains('link.unsupported') || code.contains('service.unsupported')) return tx('هذا الموقع أو الرابط غير مدعوم', 'This site or link is not supported');
+    if (code.contains('link.invalid')) return tx('الرابط غير صحيح', 'Invalid link');
+    if (code.contains('content.video.unavailable') || code.contains('content.post.unavailable')) {
+      return tx('المحتوى غير متاح أو محذوف', 'Content unavailable or deleted');
+    }
+    if (code.contains('private')) return tx('المحتوى خاص ولا يمكن تحميله', 'Content is private and cannot be saved');
+    if (code.contains('age')) return tx('المحتوى مقيّد بالعمر', 'Content is age-restricted');
+    if (code.contains('region')) return tx('المحتوى غير متاح في منطقة السيرفر', 'Content is not available in the server’s region');
+    if (code.contains('rate') || code.contains('limit')) return tx('طلبات كثيرة، انتظر قليلاً', 'Too many requests, wait a moment');
+    if (code.contains('auth')) return tx('السيرفر يتطلب مفتاح API صحيح', 'The server needs a valid API key');
+    return tx('تعذّر التحميل ($code)', 'Could not save ($code)');
+  }
+}

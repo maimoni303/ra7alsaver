@@ -1,0 +1,6 @@
+analyzer:
+  exclude:
+    - build/**
+  errors:
+    deprecated_member_use: ignore
+    unused_import: warning
