@@ -46,7 +46,7 @@ jobs:
       - name: Build Windows
         run: |
           set -o pipefail
-          flutter build windows --release 2>&1 | tee build.log || {
+          flutter build windows --release -v 2>&1 | tee build.log || {
             grep -v "^ *$" build.log | tail -9 | sed 's/^/::error::/'
             grep -iE " error |error C|error LNK|MSB[0-9]" build.log | head -9 | sed 's/^/::warning::/'
             exit 1
