@@ -202,22 +202,27 @@ class SaverState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteFile(SavedFile f) async {
+  /// Returns false when the file could not be deleted (e.g. open in another app).
+  Future<bool> deleteFile(SavedFile f) async {
+    var ok = true;
     try {
       await f.file.delete();
-    } catch (_) {}
+    } catch (_) {
+      ok = false;
+    }
     await refreshFiles();
+    return ok;
   }
 
-  Future<void> renameFile(SavedFile f, String newName) async {
-    final dir = f.file.parent.path;
-    final dot = f.name.lastIndexOf('.');
-    final ext = dot > 0 ? f.name.substring(dot) : '';
-    var n = FileStore.safeName(newName);
-    if (!n.contains('.')) n = '$n$ext';
+  /// Returns false when the rename failed (the file list is refreshed either way).
+  Future<bool> renameFile(SavedFile f, String newName) async {
+    var ok = true;
     try {
-      await f.file.rename('$dir${Platform.pathSeparator}$n');
-    } catch (_) {}
+      await FileStore.rename(f.file, newName);
+    } catch (_) {
+      ok = false;
+    }
     await refreshFiles();
+    return ok;
   }
 }
