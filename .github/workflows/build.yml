@@ -47,7 +47,7 @@ jobs:
         run: |
           set -o pipefail
           flutter build windows --release -v 2>&1 | tee build.log || {
-            grep -i "error\|nuget\|exception" build.log | grep -v "Structured output\|error hierarchy\|WarningsAsErrors\|TreatWarning\|ErrorReport\|errorlog" | tail -9 | cut -c1-300 | sed 's/^/::error::/'
+            grep "error C" build.log | grep -o "[^ ]*vcxproj" | sort -u | head -9 | sed 's/^/::error::/'
             exit 1
           }
       - name: Package
