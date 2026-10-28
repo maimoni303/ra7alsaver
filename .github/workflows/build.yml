@@ -47,7 +47,7 @@ jobs:
         run: |
           set -o pipefail
           flutter build windows --release 2>&1 | tee build.log || {
-            grep -iE "error|failed|exception" build.log | tail -25 | sed 's/^/::error::/'
+            tail -60 build.log | sed 's/^/::error::/'
             exit 1
           }
       - name: Package
