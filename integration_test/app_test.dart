@@ -59,6 +59,15 @@ Future<void> waitFor(WidgetTester t, Finder f, {Duration timeout = const Duratio
   throw TestFailure('Timed out (${timeout.inSeconds}s) waiting for ${what ?? f.describeMatch(Plurality.one)}');
 }
 
+/// Types into a text field the way the keyboard would (sets the field's text directly,
+/// so the phone's own keyboard can't interfere during the test).
+Future<void> typeInto(WidgetTester t, Finder field, String text) async {
+  await reveal(t, field);
+  final tf = t.widget<TextField>(field.first);
+  tf.controller!.value = TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+  await t.pump(const Duration(milliseconds: 200));
+}
+
 /// Scrolls the lists on screen until [f] is built (long lists only build what is visible).
 Future<void> reveal(WidgetTester t, Finder f) async {
   for (var i = 0; i < 40 && f.evaluate().isEmpty; i++) {
@@ -129,7 +138,7 @@ void main() {
     var saved = 0;
 
     Future<void> saveLink(String url) async {
-      await t.enterText(find.byType(TextField).first, url);
+      await typeInto(t, find.byType(TextField).first, url);
       await t.pump(const Duration(milliseconds: 300));
       FocusManager.instance.primaryFocus?.unfocus();
       await t.pump(const Duration(milliseconds: 300));
@@ -215,7 +224,7 @@ void main() {
     });
 
     await step('Save page: bad link shows a message', () async {
-      await t.enterText(find.byType(TextField).first, 'not a link');
+      await typeInto(t, find.byType(TextField).first, 'not a link');
       await tap(t, find.widgetWithText(PrimaryButton, 'Save'));
       await waitFor(t, find.textContaining('valid link'), timeout: const Duration(seconds: 10));
     });
@@ -317,7 +326,7 @@ void main() {
       final f = state().files.firstWhere((x) => x.name.endsWith('.wav'));
       await tap(t, optionsOf(f.name));
       await tap(t, find.text('Rename'));
-      await t.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'renamed_by_test');
+      await typeInto(t, find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'renamed_by_test');
       await tap(t, find.descendant(of: find.byType(AlertDialog), matching: find.text('Save')));
       await waitFor(t, find.text('renamed_by_test.wav'), timeout: const Duration(seconds: 10));
     });
@@ -348,7 +357,7 @@ void main() {
     });
 
     await step('Tools: WhatsApp rejects a bad number', () async {
-      await t.enterText(find.widgetWithText(TextField, '05xxxxxxxx'), '12');
+      await typeInto(t, find.widgetWithText(TextField, '05xxxxxxxx'), '12');
       await tap(t, find.text('Open chat'));
       await waitFor(t, find.text('Invalid number'), timeout: const Duration(seconds: 5));
     });
@@ -377,7 +386,7 @@ void main() {
     });
 
     await step('Settings: backup server test reports an unreachable address', () async {
-      await t.enterText(find.widgetWithText(TextField, 'http://192.168.1.10:9000'), 'http://10.255.255.1:9');
+      await typeInto(t, find.widgetWithText(TextField, 'http://192.168.1.10:9000'), 'http://10.255.255.1:9');
       await tap(t, find.text('Save & test'));
       await waitFor(t, find.textContaining(RegExp('Cannot reach|timed out|not a cobalt|Unexpected')), timeout: const Duration(seconds: 40));
       await state().setServer('', '');

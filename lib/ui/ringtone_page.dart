@@ -77,28 +77,40 @@ class _RingtonePageState extends State<RingtonePage> {
     if (_playing == 'part') return _stop();
     final src = _src;
     if (src == null) return;
-    await _player.open(Media(src.path), play: false);
+    setState(() {
+      _playing = 'part';
+      _pos = Duration(milliseconds: (_range.start * 1000).round());
+    });
+    try {
+      await _player.open(Media(src.path), play: false).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      if (mounted) setState(() => _playing = null);
+      return;
+    }
     // Wait until the file is ready, then jump to the start of the selection.
     for (var i = 0; i < 40 && _player.state.duration == Duration.zero; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     await _player.seek(Duration(milliseconds: (_range.start * 1000).round()));
-    setState(() {
-      _playing = 'part';
-      _pos = Duration(milliseconds: (_range.start * 1000).round());
-    });
-    await _player.play();
+    if (_playing == 'part') await _player.play();
   }
 
   Future<void> _listenTone() async {
     if (_playing == 'tone') return _stop();
     final r = _result;
     if (r == null) return;
-    await _player.open(Media(r.path));
     setState(() {
       _playing = 'tone';
       _pos = Duration.zero;
     });
+    try {
+      await _player.open(Media(r.path)).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      if (mounted) {
+        setState(() => _playing = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tx('تعذّر تشغيل النغمة', 'Could not play the ringtone'))));
+      }
+    }
   }
 
   Widget _listenButton({required bool on, required String label, required VoidCallback onTap, String? time}) {

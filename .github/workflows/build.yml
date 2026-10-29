@@ -184,11 +184,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tail -n 600 test.log > report.txt 2>/dev/null || echo "no log" > report.txt
-          SHA=$(gh api "repos/${{ github.repository }}/contents/android.txt?ref=test-reports" -q .sha 2>/dev/null || true)
-          gh api -X PUT "repos/${{ github.repository }}/contents/android.txt" \
-            -f message="Android test report ${{ github.sha }}" -f branch=test-reports \
-            -f content="$(base64 < report.txt | tr -d '\n')" ${SHA:+-f sha=$SHA} >/dev/null || true
+          tail -n 1500 test.log > "$RUNNER_TEMP/report.txt" 2>/dev/null || echo "no log" > "$RUNNER_TEMP/report.txt"
+          cd "$RUNNER_TEMP" && rm -rf rep && git init -q rep && cd rep
+          git config user.name "RA7AL CI" && git config user.email "ci@users.noreply.github.com"
+          git remote add origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
+          for i in 1 2 3 4; do
+            git fetch -q origin test-reports && git checkout -q -B test-reports FETCH_HEAD
+            cp "$RUNNER_TEMP/report.txt" android.txt && git add android.txt
+            git commit -qm "Android test report ${{ github.sha }}" || true
+            git push -q origin test-reports && break
+            sleep 5
+          done
 
   test-ios:
     needs: analyze
@@ -219,11 +225,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tail -n 600 test.log > report.txt 2>/dev/null || echo "no log" > report.txt
-          SHA=$(gh api "repos/${{ github.repository }}/contents/iphone.txt?ref=test-reports" -q .sha 2>/dev/null || true)
-          gh api -X PUT "repos/${{ github.repository }}/contents/iphone.txt" \
-            -f message="iPhone test report ${{ github.sha }}" -f branch=test-reports \
-            -f content="$(base64 < report.txt | tr -d '\n')" ${SHA:+-f sha=$SHA} >/dev/null || true
+          tail -n 1500 test.log > "$RUNNER_TEMP/report.txt" 2>/dev/null || echo "no log" > "$RUNNER_TEMP/report.txt"
+          cd "$RUNNER_TEMP" && rm -rf rep && git init -q rep && cd rep
+          git config user.name "RA7AL CI" && git config user.email "ci@users.noreply.github.com"
+          git remote add origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
+          for i in 1 2 3 4; do
+            git fetch -q origin test-reports && git checkout -q -B test-reports FETCH_HEAD
+            cp "$RUNNER_TEMP/report.txt" iphone.txt && git add iphone.txt
+            git commit -qm "iPhone test report ${{ github.sha }}" || true
+            git push -q origin test-reports && break
+            sleep 5
+          done
 
   release:
     needs: [windows, macos, ios, android, test-android, test-ios]
