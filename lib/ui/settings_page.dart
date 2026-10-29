@@ -72,17 +72,30 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     }
 
-    final showPath = s.saveLocation != SaveLocation.ask && s.saveFolder.isNotEmpty;
+    final showPath = (s.saveLocation == SaveLocation.downloads || s.saveLocation == SaveLocation.custom) && s.saveFolder.isNotEmpty;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(tx('موقع حفظ الملفات', 'Where files are saved'), style: const TextStyle(fontWeight: FontWeight.w600)),
+      Text(tx('يُحفظ كل ملف في مكان واحد فقط', 'Each file is saved in one place only'), style: TextStyle(color: c.faint, fontSize: 12)),
       const SizedBox(height: 4),
+      if (s.canUsePhotos)
+        option(
+          SaveLocation.photos,
+          Icons.photo_library_rounded,
+          tx('ألبوم الصور', 'Photos'),
+          s.canPickFolder
+              ? tx('الفيديو والصور في ألبوم «RA7AL»، والصوت في «ملفاتي»', 'Videos and photos in the “RA7AL” album; audio in My files')
+              : tx('الفيديو والصور في ألبوم «RA7AL»، والصوت تختار له مجلداً في «الملفات»', 'Videos and photos in the “RA7AL” album; audio goes to a Files folder you pick'),
+        ),
+      if (!s.canPickFolder)
+        option(SaveLocation.ask, Icons.drive_folder_upload_rounded, tx('تطبيق الملفات — أختار المجلد كل مرة', 'Files app — pick the folder each time'),
+            tx('iCloud أو الجوال أو ذاكرة خارجية', 'iCloud, this iPhone or an external drive')),
       option(
         SaveLocation.app,
         Icons.lock_outline_rounded,
-        tx('داخل التطبيق', 'Inside the app'),
+        tx('داخل التطبيق فقط («ملفاتي»)', 'Inside the app only (My files)'),
         s.canPickFolder
-            ? tx('مجلد خاص بالتطبيق (الافتراضي)', 'The app’s private folder (default)')
-            : tx('تجدها أيضاً في تطبيق «الملفات» ← على الـ iPhone ← RA7AL SAVER', 'Also in the Files app → On My iPhone → RA7AL SAVER'),
+            ? tx('مجلد خاص بالتطبيق', 'The app’s private folder')
+            : tx('يظهر في «الملفات» ← على الـ iPhone ← RA7AL SAVER', 'Shows in Files → On My iPhone → RA7AL SAVER'),
       ),
       if (s.canPickFolder) ...[
         option(SaveLocation.downloads, Icons.download_rounded, tx('مجلد التنزيلات', 'Downloads folder'),
@@ -94,9 +107,7 @@ class _SettingsPageState extends State<SettingsPage> {
           s.customPath.isEmpty ? tx('اضغط لاختيار المجلد', 'Tap to choose the folder') : s.customPath,
           onTap: () => _setLocation(s.pickSaveFolder),
         ),
-      ] else
-        option(SaveLocation.ask, Icons.drive_folder_upload_rounded, tx('اسألني أين أحفظ بعد كل تحميل', 'Ask me where to save after each download'),
-            tx('تختار المجلد في «الملفات» أو iCloud، وتبقى نسخة في «ملفاتي»', 'Pick a folder in Files or iCloud; a copy stays in My files')),
+      ],
       if (_picking) const Padding(padding: EdgeInsets.only(top: 6), child: LinearProgressIndicator(minHeight: 3)),
       if (showPath) ...[
         const SizedBox(height: 8),
@@ -251,14 +262,6 @@ class _SettingsPageState extends State<SettingsPage> {
             head(tx('الحفظ', 'Saving')),
             card([
               _locationCard(s, c),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: s.autoGallery,
-                onChanged: s.setAutoGallery,
-                title: Text(tx('حفظ تلقائي في ألبوم الصور', 'Also save to Photos automatically')),
-                subtitle: Text(tx('الفيديو والصور تُحفظ أيضاً في ألبوم «RA7AL»', 'Videos and photos also go to the “RA7AL” album'),
-                    style: TextStyle(color: c.faint, fontSize: 12)),
-              ),
             ]),
             head(tx('الخصوصية', 'Privacy')),
             card([

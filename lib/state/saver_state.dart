@@ -15,9 +15,10 @@ import '../services/cobalt.dart';
 import '../services/extractor.dart';
 import '../services/files.dart';
 
-/// Where downloads go: the app's folder, the device Downloads folder, a folder the user
-/// picked, or (iPhone) ask for a destination in the Files app after each download.
-enum SaveLocation { app, downloads, custom, ask }
+/// Where downloads go — one destination, no duplicates: the app's folder, the device
+/// Downloads folder, a folder the user picked, the Files app (iPhone, asked after each
+/// download) or the Photos library (phones).
+enum SaveLocation { app, downloads, custom, ask, photos }
 
 class DownloadTask {
   final MediaItem item;
@@ -39,7 +40,6 @@ class SaverState extends ChangeNotifier {
   String apiKey = '';
   String quality = '1080';
   SaveMode mode = SaveMode.video;
-  bool autoGallery = true;
   bool lockFiles = false;
   bool filesUnlocked = false;
   bool english = false;
@@ -64,11 +64,13 @@ class SaverState extends ChangeNotifier {
     apiKey = _p.getString('apiKey') ?? '';
     quality = _p.getString('quality') ?? '1080';
     mode = SaveMode.values[(_p.getInt('mode') ?? 0).clamp(0, 2)];
-    autoGallery = _p.getBool('autoGallery') ?? true;
     lockFiles = _p.getBool('lockFiles') ?? false;
     english = _p.getBool('english') ?? false;
     kEn = english;
-    saveLocation = SaveLocation.values[(_p.getInt('saveLocation') ?? 0).clamp(0, SaveLocation.values.length - 1)];
+    final savedLoc = _p.getInt('saveLocation');
+    saveLocation = savedLoc == null
+        ? (canUsePhotos ? SaveLocation.photos : SaveLocation.app)
+        : SaveLocation.values[savedLoc.clamp(0, SaveLocation.values.length - 1)];
     customPath = _p.getString('customPath') ?? '';
     if (Platform.isMacOS) {
       try {
@@ -116,15 +118,13 @@ class SaverState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setAutoGallery(bool v) {
-    autoGallery = v;
-    _p.setBool('autoGallery', v);
-    notifyListeners();
-  }
 
   // ---- save location ----
   /// Whether this device can save straight into a folder outside the app.
   bool get canPickFolder => !Platform.isIOS;
+
+  /// Saving straight into the Photos library (phones).
+  bool get canUsePhotos => Platform.isIOS || Platform.isAndroid;
 
   Future<String?> _pathFor(SaveLocation l) async => switch (l) {
         SaveLocation.downloads => await FileStore.downloadsDir(),
@@ -134,7 +134,8 @@ class SaverState extends ChangeNotifier {
 
   Future<void> _applyLocation({bool startup = false}) async {
     if ((saveLocation == SaveLocation.ask && canPickFolder) ||
-        (saveLocation != SaveLocation.app && saveLocation != SaveLocation.ask && !canPickFolder)) {
+        (saveLocation == SaveLocation.photos && !canUsePhotos) ||
+        ((saveLocation == SaveLocation.downloads || saveLocation == SaveLocation.custom) && !canPickFolder)) {
       saveLocation = SaveLocation.app;
     }
     final path = await _pathFor(saveLocation);
@@ -148,14 +149,14 @@ class SaverState extends ChangeNotifier {
         saveLocation = SaveLocation.app;
       }
     }
-    FileStore.customDir = saveLocation == SaveLocation.app || saveLocation == SaveLocation.ask ? '' : (path ?? '');
+    FileStore.customDir = path ?? '';
     saveFolder = (await FileStore.dir()).path;
   }
 
   /// Switches to [l] (for [SaveLocation.custom], to [path]). Returns null on success, otherwise why not.
   Future<String?> setSaveLocation(SaveLocation l, {String? path}) async {
     final target = l == SaveLocation.custom ? (path ?? customPath) : await _pathFor(l);
-    if (l != SaveLocation.app && l != SaveLocation.ask) {
+    if (l == SaveLocation.downloads || l == SaveLocation.custom) {
       if (target == null || target.isEmpty) return tx('لا يوجد مجلد', 'No folder');
       final err = await FileStore.checkWritable(target);
       if (err != null) {
@@ -288,19 +289,32 @@ class SaverState extends ChangeNotifier {
             notifyListeners();
           });
           t.progress = 1;
-          if (autoGallery && (it.type == 'video' || it.type == 'photo' || it.type == 'gif')) {
-            t.savedToGallery = await saveToGallery(t.file!);
-          }
+          notifyListeners();
+          await _deliver(t);
           await refreshFiles();
-          if (saveLocation == SaveLocation.ask) {
-            notifyListeners();
-            t.exported = await exportFile(t.file!);
-          }
         } catch (e) {
           t.error = tx('فشل التحميل: $e', 'Download failed: $e');
         }
         notifyListeners();
       }();
+    }
+  }
+
+  /// Sends a finished download to its one destination. For Photos and the Files app the
+  /// app's own copy is removed once the file is safely there (kept if that step fails or is cancelled).
+  Future<void> _deliver(DownloadTask t) async {
+    final f = t.file!;
+    final media = t.item.type == 'video' || t.item.type == 'photo' || t.item.type == 'gif';
+    var moved = false;
+    if (saveLocation == SaveLocation.photos && media) {
+      moved = t.savedToGallery = await saveToGallery(f);
+    } else if (saveLocation == SaveLocation.ask || (saveLocation == SaveLocation.photos && Platform.isIOS)) {
+      moved = t.exported = await exportFile(f);
+    }
+    if (moved) {
+      try {
+        await f.delete();
+      } catch (_) {}
     }
   }
 
