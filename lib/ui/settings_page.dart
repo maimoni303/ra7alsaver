@@ -8,6 +8,9 @@ import '../state/saver_state.dart';
 import '../theme.dart';
 import 'widgets.dart';
 
+/// Set by CI for each build (1.2.<build number>), so every release shows a new version.
+const kAppVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.2.0');
+
 const kCobaltCompose = '''services:
   cobalt:
     image: ghcr.io/imputnet/cobalt:10
@@ -270,7 +273,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
             head(tx('حول التطبيق', 'About')),
             card([
-              const ListTile(contentPadding: EdgeInsets.zero, leading: Ra7alLogo(size: 36), title: Text('RA7AL AL3OMR SAVER'), subtitle: Text('v1.0.0 · GPL-3.0')),
+              const ListTile(contentPadding: EdgeInsets.zero, leading: Ra7alLogo(size: 36), title: Text('RA7AL AL3OMR SAVER'), subtitle: Text('v$kAppVersion · GPL-3.0')),
               Text(
                   tx('أداة شخصية مفتوحة المصدر. احترم حقوق أصحاب المحتوى وشروط المنصات، ولا تعيد نشر محتوى الآخرين بدون إذنهم.',
                       'A personal, open-source tool. Respect creators’ rights and platform terms; do not republish others’ content without permission.'),
