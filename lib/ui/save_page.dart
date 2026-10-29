@@ -149,8 +149,8 @@ class _SavePageState extends State<SavePage> {
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: Text(tx('يوتيوب · تيك توك · إنستقرام · X · فيسبوك · سناب شات · بنترست وروابط الملفات المباشرة — بدون سيرفر',
-                  'YouTube · TikTok · Instagram · X · Facebook · Snapchat · Pinterest and direct file links — no server needed'),
+              child: Text(tx('يوتيوب · تيك توك · إنستقرام · X · لينكدإن · فيسبوك · سناب شات · بنترست والروابط المختصرة — بدون سيرفر',
+                  'YouTube · TikTok · Instagram · X · LinkedIn · Facebook · Snapchat · Pinterest and short links — no server needed'),
                   style: TextStyle(color: c.faint, fontSize: 12, height: 1.5)),
             ),
             if (_clip != null)
@@ -182,7 +182,7 @@ class _SavePageState extends State<SavePage> {
               SegmentedButton<SaveMode>(
                 segments: [
                   ButtonSegment(value: SaveMode.video, icon: const Icon(Icons.movie_rounded), label: Text(tx('فيديو', 'Video'))),
-                  ButtonSegment(value: SaveMode.audio, icon: const Icon(Icons.audiotrack_rounded), label: Text(tx('صوت MP3', 'Audio MP3'))),
+                  ButtonSegment(value: SaveMode.audio, icon: const Icon(Icons.audiotrack_rounded), label: Text(tx('صوت فقط', 'Audio only'))),
                   ButtonSegment(value: SaveMode.mute, icon: const Icon(Icons.volume_off_rounded), label: Text(tx('بدون صوت', 'No audio'))),
                 ],
                 selected: {s.mode},

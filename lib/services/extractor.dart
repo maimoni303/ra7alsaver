@@ -16,30 +16,14 @@ import 'cobalt.dart';
 class Extractor {
   static const _desktopUa =
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
-  static const _mobileUa =
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
 
   static final _yt = YoutubeExplode();
 
   static Future<List<MediaItem>> resolve(String link, {SaveMode mode = SaveMode.video, String quality = '1080'}) async {
-    var uri = Uri.tryParse(link.trim());
+    final uri = Uri.tryParse(link.trim());
     if (uri == null || !uri.hasScheme) throw CobaltException(tx('الرابط غير صحيح', 'Invalid link'));
-    final host = uri.host.toLowerCase();
     try {
-      final List<MediaItem> items;
-      if (_isDirect(uri.path)) {
-        items = [MediaItem(url: uri.toString(), filename: uri.pathSegments.isEmpty ? 'ra7al.mp4' : uri.pathSegments.last, type: _typeOf(uri.path))];
-      } else if (host.contains('youtube.com') || host == 'youtu.be') {
-        items = await _youtube(link, mode, quality);
-      } else if (host.contains('tiktok.com')) {
-        items = await _tiktok(uri);
-      } else if (host.contains('instagram.com')) {
-        items = await _instagram(uri);
-      } else if (host == 'x.com' || host.endsWith('.x.com') || host.contains('twitter.com')) {
-        items = await _x(uri);
-      } else {
-        items = await _generic(uri);
-      }
+      final items = await _dispatch(uri, mode, quality, 0);
       if (items.isEmpty) throw CobaltException(tx('لم أجد فيديو أو صورة في هذا الرابط', 'No video or photo found at this link'));
       return items.map((i) => _applyMode(i, mode)).toList();
     } on CobaltException {
@@ -53,6 +37,41 @@ class Extractor {
     } catch (e) {
       throw CobaltException(tx('تعذّر قراءة الرابط: $e', 'Could not read the link: $e'));
     }
+  }
+
+  static bool _known(String host) =>
+      host.contains('youtube.com') ||
+      host == 'youtu.be' ||
+      host.contains('tiktok.com') ||
+      host.contains('instagram.com') ||
+      host == 'x.com' ||
+      host.endsWith('.x.com') ||
+      host.contains('twitter.com') ||
+      host.contains('linkedin.com');
+
+  static Future<List<MediaItem>> _dispatch(Uri uri, SaveMode mode, String quality, int depth) async {
+    final host = uri.host.toLowerCase();
+    if (_isDirect(uri.path)) {
+      return [MediaItem(url: uri.toString(), filename: uri.pathSegments.isEmpty ? 'ra7al.mp4' : uri.pathSegments.last, type: _typeOf(uri.path))];
+    }
+    if (host.contains('youtube.com') || host == 'youtu.be') return _youtube(uri.toString(), mode, quality);
+    if (host.contains('tiktok.com')) return _tiktok(uri);
+    if (host.contains('instagram.com')) return _instagram(uri);
+    if (host == 'x.com' || host.endsWith('.x.com') || host.contains('twitter.com')) return _x(uri);
+    if (host.contains('linkedin.com')) return _linkedin(uri);
+
+    // Short links (lnkd.in, t.co, bit.ly, fb.watch, pin.it…): follow them, then read the real page.
+    final r = await _get(uri, ua: _desktopUa);
+    if (depth < 3) {
+      final dest = r.finalUri;
+      if (_known(dest.host.toLowerCase())) return _dispatch(dest, mode, quality, depth + 1);
+      // lnkd.in and similar show a "you are leaving" page with the real link instead of redirecting.
+      final out = RegExp(r'''<a[^>]+(?:external_url_click|data-tracking-control-name="external_url_click")[^>]*href="([^"]+)"''').firstMatch(r.body) ??
+          RegExp(r'''<a[^>]+href="([^"]+)"[^>]*data-tracking-control-name="external_url_click"''').firstMatch(r.body);
+      final next = out == null ? null : Uri.tryParse(_html(out.group(1)!));
+      if (next != null && next.hasScheme && next.host != uri.host) return _dispatch(next, mode, quality, depth + 1);
+    }
+    return _generic(r);
   }
 
   /// Audio-only and muted saves: the file is reduced on the device after download.
@@ -286,10 +305,40 @@ class Extractor {
     return b.toString().replaceAll('0', '');
   }
 
+  // ---------------------------------------------------------------- LinkedIn
+  static Future<List<MediaItem>> _linkedin(Uri uri) async {
+    final r = await _get(uri, ua: _desktopUa);
+    final html = r.body;
+    final id = RegExp(r'(\d{15,})').firstMatch(uri.toString())?.group(1) ?? '${DateTime.now().millisecondsSinceEpoch}';
+    // Public posts list their video files in a data-sources attribute (several bitrates).
+    for (final m in RegExp(r'data-sources="([^"]+)"').allMatches(html)) {
+      try {
+        final list = (jsonDecode(_html(m.group(1)!)) as List).whereType<Map>().where((e) => (e['src'] ?? '').toString().startsWith('http')).toList()
+          ..sort((a, b) => ((b['data-bitrate'] ?? 0) as num).compareTo((a['data-bitrate'] ?? 0) as num));
+        if (list.isNotEmpty) {
+          final poster = RegExp(r'data-poster-url="([^"]+)"').firstMatch(html)?.group(1);
+          return [MediaItem(url: list.first['src'].toString(), filename: 'LinkedIn_$id.mp4', type: 'video', thumb: poster == null ? '' : _html(poster))];
+        }
+      } catch (_) {}
+    }
+    final images = <String>{};
+    for (final m in RegExp(r'<img[^>]+class="[^"]*feed-images__image[^"]*"[^>]*>').allMatches(html)) {
+      final src = RegExp(r'(?:data-delayed-url|src)="(https://media\.licdn\.com/[^"]+)"').firstMatch(m.group(0)!);
+      if (src != null) images.add(_html(src.group(1)!));
+    }
+    if (images.isNotEmpty) {
+      var i = 0;
+      return images.map((u) => MediaItem(url: u, filename: 'LinkedIn_${id}_${++i}.jpg', type: 'photo')).toList();
+    }
+    if (r.finalUri.path.contains('authwall') || r.finalUri.path.contains('login')) {
+      throw CobaltException(tx('لينكدإن يطلب تسجيل دخول لهذا المنشور', 'LinkedIn requires a login for this post'));
+    }
+    return _generic(r);
+  }
+
   // ---------------------------------------------------------------- Any other page
-  static Future<List<MediaItem>> _generic(Uri uri) async {
-    var r = await _get(uri, ua: _mobileUa);
-    var html = r.body;
+  static Future<List<MediaItem>> _generic(_Page r) async {
+    final html = r.body;
     String name(String ext) => '${r.finalUri.host.replaceFirst('www.', '').split('.').first}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     // Facebook publishes its HD/SD files in the page data.
