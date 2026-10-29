@@ -72,6 +72,10 @@ class _Browser {
 class BrowserPage extends StatefulWidget {
   const BrowserPage({super.key});
   static bool get supported => Platform.isIOS || Platform.isAndroid || Platform.isMacOS;
+
+  /// Loads a page from text (used by the app's own tests).
+  static Future<void> debugLoadHtml(String html, {String baseUrl = 'https://ra7al.test/'}) async =>
+      _Browser.controller?.loadHtmlString(html, baseUrl: baseUrl);
   @override
   State<BrowserPage> createState() => _BrowserPageState();
 }

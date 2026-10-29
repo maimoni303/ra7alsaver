@@ -100,6 +100,18 @@ class MediaTools {
     }
   }
 
+  /// Container and streams of a media file, e.g. format "mov,mp4,m4a,3gp,3g2,mj2",
+  /// streams ["video:h264", "audio:aac"]. Used by the app's own tests.
+  static Future<({String format, List<String> streams, double duration})> probe(String path) async {
+    final s = await FFprobeKit.getMediaInformation(path);
+    final info = s.getMediaInformation();
+    return (
+      format: info?.getFormat() ?? '',
+      streams: [for (final st in info?.getStreams() ?? const []) '${st.getType()}:${st.getCodec()}'],
+      duration: double.tryParse(info?.getDuration() ?? '') ?? 0,
+    );
+  }
+
   /// Cuts [length] seconds from [start] into a ringtone.
   /// iPhone: AAC in an .m4r (MPEG-4) file, 44.1 kHz stereo, at most 40 s — the format iOS
   /// requires for ringtones (about 0.8 MB). Android: MP3, 44.1 kHz.

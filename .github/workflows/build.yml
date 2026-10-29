@@ -137,23 +137,76 @@ jobs:
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk dist/RA7AL-Files-Downloader-Android.apk
-      - name: Publish Android right away
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh release delete android --cleanup-tag -y || true
-          gh release create android dist/RA7AL-Files-Downloader-Android.apk \
-            --target "${{ github.sha }}" \
-            --title "RA7AL Files Downloader — أندرويد" \
-            --notes "نزّل الملف على الجوال وافتحه، واسمح بالتثبيت من مصادر غير معروفة إذا طُلب منك."
       - uses: actions/upload-artifact@v5
         with:
           name: android
           path: dist/RA7AL-Files-Downloader-Android.apk
 
+  # Full end-to-end test of every page, tool and button on real phone systems.
+  # Nothing is published unless both pass.
+  test-android:
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - name: Enable hardware acceleration for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/setup_platforms.sh android
+      - name: Run the app test on an Android phone (emulator)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash -c 'set -o pipefail; flutter test integration_test/app_test.dart -d emulator-5554 --reporter expanded 2>&1 | tee test.log'
+      - name: Test report
+        if: always()
+        run: |
+          { echo "## Android test report"; echo '```'; grep -E "(PASS|FAIL|WARN)  |^PASS \||^FAIL \||^WARN \||Passed [0-9]+ of" test.log || echo "no report (see the log)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          grep -E "FAIL  " test.log | sed 's/^/::error::Android: /' || true
+
+  test-ios:
+    needs: analyze
+    runs-on: macos-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/setup_platforms.sh ios
+      - name: Start an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')]; print(c[-1]['udid'])")
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+      - name: Run the app test on an iPhone (simulator)
+        run: bash -c 'set -o pipefail; flutter test integration_test/app_test.dart -d "$UDID" --reporter expanded 2>&1 | tee test.log'
+      - name: Test report
+        if: always()
+        run: |
+          { echo "## iPhone test report"; echo '```'; grep -E "(PASS|FAIL|WARN)  |^PASS \||^FAIL \||^WARN \||Passed [0-9]+ of" test.log || echo "no report (see the log)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          grep -E "FAIL  " test.log | sed 's/^/::error::iPhone: /' || true
+
   release:
-    needs: [windows, macos, ios, android]
+    needs: [windows, macos, ios, android, test-android, test-ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5
@@ -169,4 +222,9 @@ jobs:
           gh release create latest dist/* \
             --target "${{ github.sha }}" \
             --title "RA7AL Files Downloader — أحدث إصدار" \
-            --notes "نسخ ويندوز وماك وآيفون وأندرويد. طريقة التثبيت في ملف README."
+            --notes "نسخ ويندوز وماك وآيفون وأندرويد — اجتازت الاختبار الكامل على آيفون وأندرويد قبل النشر. طريقة التثبيت في ملف README."
+          gh release delete android --cleanup-tag -y || true
+          gh release create android dist/RA7AL-Files-Downloader-Android.apk \
+            --target "${{ github.sha }}" \
+            --title "RA7AL Files Downloader — أندرويد" \
+            --notes "نزّل الملف على الجوال وافتحه، واسمح بالتثبيت من مصادر غير معروفة إذا طُلب منك."
