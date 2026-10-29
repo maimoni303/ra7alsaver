@@ -56,7 +56,8 @@ Future<void> waitFor(WidgetTester t, Finder f, {Duration timeout = const Duratio
     await t.pump(const Duration(milliseconds: 250));
     if (f.evaluate().isNotEmpty) return;
   }
-  throw TestFailure('Timed out (${timeout.inSeconds}s) waiting for ${what ?? f.describeMatch(Plurality.one)}');
+  final onScreen = find.byType(Text).evaluate().map((e) => (e.widget as Text).data ?? '').where((x) => x.trim().isNotEmpty).take(40).join(' | ');
+  throw TestFailure('Timed out (${timeout.inSeconds}s) waiting for ${what ?? f.describeMatch(Plurality.one)} — on screen: $onScreen');
 }
 
 /// Types into a text field the way the keyboard would (sets the field's text directly,

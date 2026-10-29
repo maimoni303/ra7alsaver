@@ -64,7 +64,11 @@ class _RingtonePageState extends State<RingtonePage> {
       setState(() => _pos = p);
     });
     _playSub = _player.stream.completed.listen((done) {
-      if (done && mounted) setState(() => _playing = null);
+      // Only a real end of playback resets the button (some players also report
+      // "completed" for the previous file while a new one is opening).
+      final st = _player.state;
+      final atEnd = st.duration > Duration.zero && st.position >= st.duration - const Duration(milliseconds: 400);
+      if (done && atEnd && mounted) setState(() => _playing = null);
     });
   }
 
