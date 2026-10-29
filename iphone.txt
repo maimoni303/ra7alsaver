@@ -7,12 +7,12 @@ The following plugins do not support Swift Package Manager for ios:
   - media_kit_libs_ios_video
   - media_kit_video
 This will become an error in a future version of Flutter. Please contact the plugin maintainers to request Swift Package Manager adoption.
-Running pod install...                                              4.2s
+Running pod install...                                              3.6s
 Running Xcode build...                                          
-Xcode build done.                                           169.6s
+Xcode build done.                                           209.6s
 00:00 +0: (setUpAll)
-00:01 +0: RA7AL Files Downloader — every page, tool and button
-media_kit: NativeReferenceHolder: Allocated 4446890496
+00:02 +0: RA7AL Files Downloader — every page, tool and button
+media_kit: NativeReferenceHolder: Allocated 4413376000
 Loading ffmpeg-kit-flutter.
 Loaded ffmpeg-kit-flutter-ios-custom-arm64-8.0.0.
 PASS  Save page: plain MP4 download  
@@ -45,29 +45,12 @@ PASS  Ringtone: iPhone .m4r is AAC, ≤ 40 s, < 1 MB even from a 50 s clip
 PASS  Ringtone: Android .mp3 ≤ 60 s  
 PASS  My files: list, filters and refresh  
 VideoOutput.Resize
-{id: 0, rect: {left: 0.0, top: 0.0, width: 0.0, height: 0.0}, handle: 4374321088}
+{rect: {top: 0.0, width: 0.0, left: 0.0, height: 0.0}, handle: 4421549984, id: 0}
 NativeVideoController: Texture ID: 0
 VideoOutput.Resize
-{rect: {top: 0.0, width: 320.0, height: 240.0, left: 0.0}, id: 0, handle: 4374321088}
+{id: 0, handle: 4421549984, rect: {width: 320.0, left: 0.0, top: 0.0, height: 240.0}}
 PASS  My files: open a video in the player  
-FAIL  My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result  Timed out (10s) waiting for the ringtone playing
----- My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result
-Timed out (10s) waiting for the ringtone playing
-#0      waitFor (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:59:3)
-<asynchronous suspension>
-#1      main.<anonymous closure>.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:325:7)
-<asynchronous suspension>
-#2      step (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:106:5)
-<asynchronous suspension>
-#3      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:312:5)
-<asynchronous suspension>
-#4      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#5      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-#6      StackZoneSpecification._registerCallback.<anonymous closure> (package:stack_trace/src/stack_zone_specification.dart:114:42)
-<asynchronous suspension>
-
+PASS  My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result  
 PASS  My files: rename  
 PASS  My files: delete  
 PASS  Tools: ringtone maker opens and returns  
@@ -88,11 +71,11 @@ Please report this issue on GitHub in that case.)
 <asynchronous suspension>
 #1      Future.timeout.<anonymous closure> (dart:async/future_impl.dart:1061:7)
 <asynchronous suspension>
-#2      main.<anonymous closure>.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:23)
+#2      main.<anonymous closure>.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:444:23)
 <asynchronous suspension>
-#3      step (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:106:5)
+#3      step (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:107:5)
 <asynchronous suspension>
-#4      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:442:7)
+#4      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -111,11 +94,11 @@ Please report this issue on GitHub in that case.)
 <asynchronous suspension>
 #1      Future.timeout.<anonymous closure> (dart:async/future_impl.dart:1061:7)
 <asynchronous suspension>
-#2      main.<anonymous closure>.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:23)
+#2      main.<anonymous closure>.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:444:23)
 <asynchronous suspension>
-#3      step (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:106:5)
+#3      step (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:107:5)
 <asynchronous suspension>
-#4      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:442:7)
+#4      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -159,7 +142,7 @@ PASS | Ringtone: iPhone .m4r is AAC, ≤ 40 s, < 1 MB even from a 50 s clip |
 PASS | Ringtone: Android .mp3 ≤ 60 s | 
 PASS | My files: list, filters and refresh | 
 PASS | My files: open a video in the player | 
-FAIL | My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result | Timed out (10s) waiting for the ringtone playing
+PASS | My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result | 
 PASS | My files: rename | 
 PASS | My files: delete | 
 PASS | Tools: ringtone maker opens and returns | 
@@ -175,92 +158,7 @@ WARN | Live site: YouTube Shorts link | The video is unavailable, private or res
 PASS | Any file link (PDF) is read as a file and downloaded | 
 PASS | Link reader: direct file and stream links | 
 PASS | Link reader: unsupported page gives a clear message | 
-Passed 43 of 46
+Passed 44 of 46
 
-══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
-The following TestFailure was thrown running a test:
-Expected: false
-  Actual: <true>
-
-===== RA7AL test report =====
-PASS | Save page: plain MP4 download |
-PASS | Save page: format MKV |
-PASS | Save page: "Audio only" as MP3 |
-PASS | Save page: "Audio only" as M4A (no re-encode) |
-PASS | Save page: "No audio" |
-PASS | Save page: HLS stream link saved as one MP4 |
-PASS | Save page: quality menu opens and changes |
-PASS | Save page: bad link shows a message |
-PASS | Save page: "Clear finished" |
-PASS | Converter: MP4 → MOV |
-PASS | Converter: MP4 → WEBM |
-PASS | Converter: MP4 → AVI |
-PASS | Converter: MP4 → GIF |
-PASS | Converter: MP4 → MKV |
-PASS | Converter: MP4 → WAV |
-PASS | Converter: MP4 → FLAC |
-PASS | Converter: MP4 → OPUS |
-PASS | Converter: MP4 → OGG |
-PASS | Converter: MP4 → AAC |
-PASS | Converter: MP4 → MP3 |
-PASS | Converter: MP4 → M4A |
-PASS | Converter: MP4 → JPG |
-PASS | Converter: JPG → PNG |
-PASS | Converter: JPG → WEBP |
-PASS | Converter: JPG → BMP |
-PASS | Converter: MP3 → WAV |
-PASS | Ringtone: iPhone .m4r is AAC, ≤ 40 s, < 1 MB even from a 50 s clip |
-PASS | Ringtone: Android .mp3 ≤ 60 s |
-PASS | My files: list, filters and refresh |
-PASS | My files: open a video in the player |
-FAIL | My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the
-result | Timed out (10s) waiting for the ringtone playing
-PASS | My files: rename |
-PASS | My files: delete |
-PASS | Tools: ringtone maker opens and returns |
-PASS | Tools: converter "From My files" picks a file and converts |
-PASS | Tools: WhatsApp rejects a bad number |
-PASS | Settings: theme buttons |
-PASS | Settings: every save location |
-PASS | Settings: backup server test reports an unreachable address |
-PASS | Settings: language switch to Arabic and back |
-PASS | Browser: finds the video on a page and downloads it |
-WARN | Live site: YouTube | The video is unavailable, private or restricted (Video 'jNQXAC9IVRw' is
-unavailable In most cases, this error indicates that the video doesn't exist, is private, or has
-been taken down. If you can however open this video in your browser in incognito mode, it most
-likely means that YouTube changed something, which broke this library. Please report this issue on
-GitHub in that case.)
-WARN | Live site: YouTube Shorts link | The video is unavailable, private or restricted (Video
-'jNQXAC9IVRw' is unavailable In most cases, this error indicates that the video doesn't exist, is
-private, or has been taken down. If you can however open this video in your browser in incognito
-mode, it most likely means that YouTube changed something, which broke this library. Please report
-this issue on GitHub in that case.)
-PASS | Any file link (PDF) is read as a file and downloaded |
-PASS | Link reader: direct file and stream links |
-PASS | Link reader: unsupported page gives a clear message |
-Passed 43 of 46
-
-When the exception was thrown, this was the stack:
-#4      main.<anonymous closure> (file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:476:5)
-<asynchronous suspension>
-#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
-<asynchronous suspension>
-#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
-<asynchronous suspension>
-<asynchronous suspension>
-(elided one frame from package:stack_trace)
-
-This was caught by the test expectation on the following line:
-  file:///Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart line 476
-The test description was:
-  RA7AL Files Downloader — every page, tool and button
-════════════════════════════════════════════════════════════════════════════════════════════════════
-03:00 +0 -1: RA7AL Files Downloader — every page, tool and button [E]
-  Test failed. See exception logs above.
-  The test description was: RA7AL Files Downloader — every page, tool and button
-  
-03:00 +0 -1: (tearDownAll)
-03:10 +0 -1: Some tests failed.
-
-Failing tests:
-  /Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart: RA7AL Files Downloader — every page, tool and button
+02:50 +1: (tearDownAll)
+02:57 +1: All tests passed!
