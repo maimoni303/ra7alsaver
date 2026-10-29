@@ -18,9 +18,46 @@ class CobaltException implements Exception {
   String toString() => message;
 }
 
+/// What happens to a file after it is downloaded (on iPhone/Android).
+enum PostProcess { none, merge, audioOnly, videoOnly }
+
 class MediaItem {
   final String url, filename, type, thumb; // type: video | photo | gif | audio
-  const MediaItem({required this.url, required this.filename, required this.type, this.thumb = ''});
+  /// Headers the site needs for the file request (cookies, referer).
+  final Map<String, String> headers;
+
+  /// Expected size in bytes (0 = unknown).
+  final int size;
+
+  /// Custom byte source (YouTube streams are fetched in chunks by their own client).
+  final Stream<List<int>> Function()? open;
+  final PostProcess post;
+
+  /// Second stream to merge with this one (YouTube HD audio).
+  final MediaItem? extra;
+  const MediaItem({
+    required this.url,
+    required this.filename,
+    required this.type,
+    this.thumb = '',
+    this.headers = const {},
+    this.size = 0,
+    this.open,
+    this.post = PostProcess.none,
+    this.extra,
+  });
+
+  MediaItem copyWith({String? filename, String? type, PostProcess? post, MediaItem? extra}) => MediaItem(
+        url: url,
+        filename: filename ?? this.filename,
+        type: type ?? this.type,
+        thumb: thumb,
+        headers: headers,
+        size: size,
+        open: open,
+        post: post ?? this.post,
+        extra: extra ?? this.extra,
+      );
 }
 
 class CobaltResult {

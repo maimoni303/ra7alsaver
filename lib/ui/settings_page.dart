@@ -190,8 +190,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 onSelectionChanged: (v) => s.setTheme(v.first),
               ),
             ]),
-            head(tx('سيرفر التحميل (cobalt)', 'Download server (cobalt)')),
+            head(tx('سيرفر احتياطي (اختياري)', 'Backup server (optional)')),
             card([
+              Text(
+                  tx('التطبيق يحمّل مباشرة من جوالك بدون أي سيرفر. أضف سيرفر cobalt هنا فقط إذا أردت محاولة ثانية عند تعذّر رابط ما.',
+                      'The app downloads straight from your device with no server. Add a cobalt server only if you want a second try when a link fails.'),
+                  style: TextStyle(color: c.muted, fontSize: 13, height: 1.5)),
+              const SizedBox(height: 12),
               TextField(
                 controller: _server,
                 textDirection: TextDirection.ltr,

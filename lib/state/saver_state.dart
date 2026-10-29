@@ -9,7 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n.dart';
 
+import 'package:ra7al_muxer/ra7al_muxer.dart';
+
 import '../services/cobalt.dart';
+import '../services/extractor.dart';
 import '../services/files.dart';
 
 /// Where downloads go: the app's folder, the device Downloads folder, a folder the user
@@ -256,11 +259,17 @@ class SaverState extends ChangeNotifier {
   }
 
   // ---- downloads ----
+  /// Reads the link on the device; your own cobalt server (optional, in Settings) is the fallback.
   Future<List<MediaItem>> resolve(String link) async {
     resolving = true;
     notifyListeners();
     try {
-      return (await Cobalt(server, apiKey: apiKey).resolve(link, mode: mode, quality: quality)).items;
+      try {
+        return await Extractor.resolve(link, mode: mode, quality: quality);
+      } on CobaltException {
+        if (server.trim().isEmpty) rethrow;
+        return (await Cobalt(server, apiKey: apiKey).resolve(link, mode: mode, quality: quality)).items;
+      }
     } finally {
       resolving = false;
       notifyListeners();
@@ -274,7 +283,7 @@ class SaverState extends ChangeNotifier {
       notifyListeners();
       () async {
         try {
-          t.file = await FileStore.download(it.url, it.filename, (p) {
+          t.file = await _fetch(it, (p) {
             t.progress = p;
             notifyListeners();
           });
@@ -292,6 +301,47 @@ class SaverState extends ChangeNotifier {
         }
         notifyListeners();
       }();
+    }
+  }
+
+  /// Downloads [it] and applies its post-processing (merge HD video with audio,
+  /// keep only the audio, or drop the audio). Temporary parts are hidden dot-files.
+  Future<File> _fetch(MediaItem it, void Function(double) progress) async {
+    if (it.post == PostProcess.none) {
+      return FileStore.download(it.url, it.filename, progress, headers: it.headers, open: it.open, size: it.size);
+    }
+    final parts = <File>[];
+    try {
+      final extra = it.extra;
+      final share = extra == null ? 1.0 : (it.size > 0 && extra.size > 0 ? it.size / (it.size + extra.size) : 0.85);
+      final ext = it.filename.split('.').last;
+      parts.add(await FileStore.download(it.url, 'part_${DateTime.now().microsecondsSinceEpoch}.$ext', (p) => progress(p < 0 ? -1 : p * share * 0.98),
+          headers: it.headers, open: it.open, size: it.size, hidden: true));
+      if (extra != null) {
+        final e2 = extra.filename.split('.').last;
+        parts.add(await FileStore.download(extra.url, 'part_${DateTime.now().microsecondsSinceEpoch}.$e2',
+            (p) => progress(p < 0 ? -1 : (share + p * (1 - share)) * 0.98),
+            headers: extra.headers, open: extra.open, size: extra.size, hidden: true));
+      }
+      final out = await FileStore.reserve(it.filename);
+      try {
+        await Ra7alMuxer.remux(
+          inputs: parts.map((f) => f.path).toList(),
+          output: out.path,
+          video: it.post != PostProcess.audioOnly,
+          audio: it.post != PostProcess.videoOnly,
+        );
+      } catch (_) {
+        if (await out.exists()) await out.delete();
+        rethrow;
+      }
+      return out;
+    } finally {
+      for (final f in parts) {
+        try {
+          await f.delete();
+        } catch (_) {}
+      }
     }
   }
 

@@ -7,7 +7,6 @@ import '../l10n.dart';
 import '../services/cobalt.dart';
 import '../state/saver_state.dart';
 import '../theme.dart';
-import 'shell.dart';
 import 'widgets.dart';
 
 class SavePage extends StatefulWidget {
@@ -51,10 +50,6 @@ class _SavePageState extends State<SavePage> {
     final link = _link.text.trim();
     if (!link.startsWith('http')) {
       setState(() => _error = tx('الصق رابطاً صحيحاً يبدأ بـ http', 'Paste a valid link starting with http'));
-      return;
-    }
-    if (s.server.isEmpty) {
-      setState(() => _error = tx('أضف عنوان سيرفر التحميل من الإعدادات أولاً', 'Add the download server address in Settings first'));
       return;
     }
     setState(() => _error = null);
@@ -152,18 +147,12 @@ class _SavePageState extends State<SavePage> {
             const SizedBox(height: 4),
             Text(tx('الصق رابط فيديو أو صورة أو منشور، واحفظه بأعلى جودة.', 'Paste a video, photo or post link and save it in top quality.'), style: TextStyle(color: c.muted)),
             const SizedBox(height: 20),
-            if (s.server.isEmpty)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: c.card, border: Border.all(color: c.line), borderRadius: BorderRadius.circular(12)),
-                child: Row(children: [
-                  Icon(Icons.dns_rounded, color: c.accent),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(tx('أضف عنوان سيرفر التحميل (cobalt) أولاً', 'Add your download server (cobalt) first'))),
-                  TextButton(onPressed: () => Shell.go(context, 3), child: Text(tx('الإعدادات', 'Settings'))),
-                ]),
-              ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(tx('يوتيوب · تيك توك · إنستقرام · X · فيسبوك · سناب شات · بنترست وروابط الملفات المباشرة — بدون سيرفر',
+                  'YouTube · TikTok · Instagram · X · Facebook · Snapchat · Pinterest and direct file links — no server needed'),
+                  style: TextStyle(color: c.faint, fontSize: 12, height: 1.5)),
+            ),
             if (_clip != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),

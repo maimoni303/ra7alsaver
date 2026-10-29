@@ -1,0 +1,21 @@
+name: ra7al_muxer
+description: Local plugin for RA7AL SAVER — joins a video and an audio track, or keeps just one, without re-encoding (AVFoundation on iOS, MediaMuxer on Android).
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.ra7al.muxer
+        pluginClass: Ra7alMuxerPlugin
+      ios:
+        pluginClass: Ra7alMuxerPlugin

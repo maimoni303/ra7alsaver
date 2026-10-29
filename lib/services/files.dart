@@ -89,23 +89,35 @@ class FileStore {
     return n;
   }
 
-  /// Streams [url] to the private folder, reporting progress 0..1 (or -1 when unknown).
-  static Future<File> download(String url, String filename, void Function(double) onProgress) async {
-    final target = await _uniqueTarget(await dir(), safeName(filename));
+  /// Streams [url] to the download folder, reporting progress 0..1 (or -1 when unknown).
+  /// [open] replaces the plain HTTP request; [hidden] writes a dot-file (temporary parts of a merge).
+  static Future<File> download(String url, String filename, void Function(double) onProgress,
+      {Map<String, String> headers = const {}, Stream<List<int>> Function()? open, int size = 0, bool hidden = false}) async {
+    final target = await _uniqueTarget(await dir(), (hidden ? '.' : '') + safeName(filename));
     final part = File('${target.path}.part');
     final client = HttpClient()..badCertificateCallback = (c, h, p) => true;
     try {
-      final req = await client.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 30));
-      final res = await req.close().timeout(const Duration(seconds: 60));
-      if (res.statusCode >= 400) throw HttpException('HTTP ${res.statusCode}');
-      final total = res.contentLength;
+      Stream<List<int>> body;
+      var total = size;
+      if (open != null) {
+        body = open();
+      } else {
+        final req = await client.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 30));
+        req.headers.set(HttpHeaders.userAgentHeader,
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1');
+        headers.forEach(req.headers.set);
+        final res = await req.close().timeout(const Duration(seconds: 60));
+        if (res.statusCode >= 400) throw HttpException('HTTP ${res.statusCode}');
+        if (res.contentLength > 0) total = res.contentLength;
+        body = res;
+      }
       var got = 0;
       final sink = part.openWrite();
       try {
-        await for (final chunk in res.timeout(const Duration(seconds: 90))) {
+        await for (final chunk in body.timeout(const Duration(seconds: 90))) {
           sink.add(chunk);
           got += chunk.length;
-          onProgress(total > 0 ? got / total : -1);
+          onProgress(total > 0 ? (got / total).clamp(0.0, 1.0) : -1);
         }
         await sink.flush();
       } finally {
@@ -135,6 +147,9 @@ class FileStore {
     }
     return target;
   }
+
+  /// A free path in the download folder for [filename] (nothing is written).
+  static Future<File> reserve(String filename) async => _uniqueTarget(await dir(), safeName(filename));
 
   /// Copies [src] into the private folder without overwriting an existing file.
   static Future<File> importFile(File src) async {
