@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import 'brand_overlay.dart';
+import 'browser_page.dart';
 import 'files_page.dart';
 import 'save_page.dart';
 import 'settings_page.dart';
@@ -17,6 +18,7 @@ class Shell extends StatefulWidget {
 
 List<(IconData, String)> get _nav => [
       (Icons.download_rounded, tx('حفظ', 'Save')),
+      (Icons.travel_explore_rounded, tx('متصفح', 'Browser')),
       (Icons.folder_rounded, tx('ملفاتي', 'My files')),
       (Icons.handyman_rounded, tx('أدوات', 'Tools')),
       (Icons.settings_rounded, tx('الإعدادات', 'Settings')),
@@ -24,17 +26,21 @@ List<(IconData, String)> get _nav => [
 
 class _ShellState extends State<Shell> {
   int _i = 0;
+  bool _browserOpened = false; // the browser stays alive in the background once opened
 
   void go(int i) {
     if (i == _i) return;
     BrandBus.beat();
-    setState(() => _i = i);
+    setState(() {
+      _i = i;
+      if (i == 1) _browserOpened = true;
+    });
   }
 
   Widget _page() => switch (_i) {
-        1 => const FilesPage(),
-        2 => const ToolsPage(),
-        3 => const SettingsPage(),
+        2 => const FilesPage(),
+        3 => const ToolsPage(),
+        4 => const SettingsPage(),
         _ => const SavePage(),
       };
 
@@ -42,14 +48,18 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final c = context.c;
     final wide = MediaQuery.sizeOf(context).width >= 900;
-    final body = AnimatedSwitcher(
+    final pages = AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
       transitionBuilder: (child, a) => FadeTransition(
         opacity: a,
         child: SlideTransition(position: Tween(begin: const Offset(0, 0.03), end: Offset.zero).animate(a), child: child),
       ),
-      child: KeyedSubtree(key: ValueKey(_i), child: SafeArea(bottom: false, child: _page())),
+      child: KeyedSubtree(key: ValueKey(_i == 1 ? -1 : _i), child: SafeArea(bottom: false, child: _i == 1 ? const SizedBox() : _page())),
     );
+    final body = Stack(children: [
+      if (_browserOpened) Positioned.fill(child: Offstage(offstage: _i != 1, child: const SafeArea(bottom: false, top: false, child: BrowserPage()))),
+      if (_i != 1) Positioned.fill(child: pages),
+    ]);
     if (!wide) {
       return Scaffold(
         body: body,
