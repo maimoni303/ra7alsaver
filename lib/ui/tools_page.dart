@@ -57,7 +57,9 @@ class _ToolsPageState extends State<ToolsPage> {
             const SizedBox(height: 20),
             Container(
               decoration: BoxDecoration(gradient: context.brandGradient, borderRadius: BorderRadius.circular(16)),
-              child: ListTile(
+              child: Material(
+                type: MaterialType.transparency,
+                child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 leading: const Icon(Icons.music_note_rounded, color: Colors.white, size: 30),
                 title: Text(tx('صانع النغمات', 'Ringtone maker'),
@@ -66,6 +68,7 @@ class _ToolsPageState extends State<ToolsPage> {
                     style: const TextStyle(color: Colors.white70)),
                 trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white),
                 onTap: () => RingtonePage.open(context),
+              ),
               ),
             ),
             const SizedBox(height: 16),

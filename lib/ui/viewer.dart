@@ -26,7 +26,8 @@ class _ViewerState extends State<Viewer> {
   @override
   void initState() {
     super.initState();
-    BrandBus.hidden.value = true;
+    // Change the shared logo state after this frame, never while widgets are being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) => BrandBus.hidden.value = true);
     if (_media) {
       _player = Player();
       _video = VideoController(_player!);
@@ -36,7 +37,7 @@ class _ViewerState extends State<Viewer> {
 
   @override
   void dispose() {
-    BrandBus.hidden.value = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) => BrandBus.hidden.value = false);
     _player?.dispose();
     super.dispose();
   }

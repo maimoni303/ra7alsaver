@@ -82,7 +82,7 @@ class _RingtonePageState extends State<RingtonePage> {
       _pos = Duration(milliseconds: (_range.start * 1000).round());
     });
     try {
-      await _player.open(Media(src.path), play: false).timeout(const Duration(seconds: 8));
+      await _player.open(Media(src.uri.toString()), play: false).timeout(const Duration(seconds: 8));
     } catch (_) {
       if (mounted) setState(() => _playing = null);
       return;
@@ -104,7 +104,10 @@ class _RingtonePageState extends State<RingtonePage> {
       _pos = Duration.zero;
     });
     try {
-      await _player.open(Media(r.path)).timeout(const Duration(seconds: 8));
+      // Play a copy with a plain name: some players won't open ".m4r" or names with brackets.
+      final ext = r.path.toLowerCase().endsWith('.m4r') ? 'm4a' : r.path.split('.').last;
+      final copy = await r.copy('${Directory.systemTemp.path}/ra7al_tone_preview.$ext');
+      await _player.open(Media(copy.uri.toString())).timeout(const Duration(seconds: 8));
     } catch (_) {
       if (mounted) {
         setState(() => _playing = null);
@@ -269,11 +272,17 @@ class _RingtonePageState extends State<RingtonePage> {
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.read<SaverState>();
-    Widget card(List<Widget> children) => Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: c.card, border: Border.all(color: c.line), borderRadius: BorderRadius.circular(14)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    // A Material surface (not a plain coloured box) so list tiles inside show their tap ripple.
+    Widget card(List<Widget> children) => Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Material(
+            color: c.card,
+            shape: RoundedRectangleBorder(side: BorderSide(color: c.line), borderRadius: BorderRadius.circular(14)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+            ),
+          ),
         );
     final len = _range.end - _range.start;
     return Scaffold(

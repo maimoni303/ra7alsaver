@@ -162,11 +162,17 @@ class _SettingsPageState extends State<SettingsPage> {
     final s = context.watch<SaverState>();
     final c = context.c;
     final wide = MediaQuery.sizeOf(context).width >= 900;
-    Widget card(List<Widget> children) => Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: c.card, border: Border.all(color: c.line), borderRadius: BorderRadius.circular(14)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    // A Material surface (not a plain coloured box) so list tiles inside show their tap ripple.
+    Widget card(List<Widget> children) => Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Material(
+            color: c.card,
+            shape: RoundedRectangleBorder(side: BorderSide(color: c.line), borderRadius: BorderRadius.circular(14)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+            ),
+          ),
         );
     Widget head(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
