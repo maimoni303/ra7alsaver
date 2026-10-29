@@ -1,0 +1,12 @@
+00:00 +0: loading /Users/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart
+Updating minimum iOS deployment target to 15.0.
+Upgrading project.pbxproj
+Upgrading AppFrameworkInfo.plist
+Upgrading Podfile
+The following plugins do not support Swift Package Manager for ios:
+  - media_kit_libs_ios_video
+  - media_kit_video
+This will become an error in a future version of Flutter. Please contact the plugin maintainers to request Swift Package Manager adoption.
+Running pod install...                                              3.2s
+Running Xcode build...                                          
+Xcode build done.                                           320.1s
