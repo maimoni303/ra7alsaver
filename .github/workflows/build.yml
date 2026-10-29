@@ -21,7 +21,13 @@ jobs:
         with:
           channel: stable
           cache: true
-      - run: flutter pub get
+      - name: Get packages
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee pub.log || {
+            tail -25 pub.log | sed 's/^/::error::/'
+            exit 1
+          }
       - name: Analyze
         run: |
           set -o pipefail
