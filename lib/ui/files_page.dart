@@ -7,6 +7,7 @@ import '../l10n.dart';
 import '../services/files.dart';
 import '../state/saver_state.dart';
 import '../theme.dart';
+import 'ringtone_page.dart';
 import 'viewer.dart';
 import 'widgets.dart';
 
@@ -53,6 +54,11 @@ class _FilesPageState extends State<FilesPage> {
                 leading: const Icon(Icons.photo_library_rounded),
                 title: Text(tx('حفظ في الصور', 'Save to Photos')),
                 onTap: () => Navigator.pop(ctx, 'gallery')),
+          if (f.type == 'video' || f.type == 'audio')
+            ListTile(
+                leading: const Icon(Icons.music_note_rounded),
+                title: Text(tx('اجعله نغمة رنين', 'Make a ringtone')),
+                onTap: () => Navigator.pop(ctx, 'ringtone')),
           ListTile(leading: const Icon(Icons.edit_rounded), title: Text(tx('إعادة تسمية', 'Rename')), onTap: () => Navigator.pop(ctx, 'rename')),
           ListTile(
               leading: Icon(Icons.delete_rounded, color: c.live),
@@ -65,6 +71,8 @@ class _FilesPageState extends State<FilesPage> {
     switch (action) {
       case 'open':
         _open(f);
+      case 'ringtone':
+        await RingtonePage.open(context, source: f.file);
       case 'share':
         await Share.shareXFiles([XFile(f.file.path)]);
       case 'gallery':

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import 'converter_card.dart';
+import 'ringtone_page.dart';
 import 'widgets.dart';
 
 /// Extra tools. First one: WhatsApp a number without saving it.
@@ -54,6 +55,20 @@ class _ToolsPageState extends State<ToolsPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(tx('أدوات', 'Tools'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
             const SizedBox(height: 20),
+            Container(
+              decoration: BoxDecoration(gradient: context.brandGradient, borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                leading: const Icon(Icons.music_note_rounded, color: Colors.white, size: 30),
+                title: Text(tx('صانع النغمات', 'Ringtone maker'),
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                subtitle: Text(tx('حوّل أي مقطع إلى نغمة رنين للآيفون أو أندرويد', 'Turn any clip into an iPhone or Android ringtone'),
+                    style: const TextStyle(color: Colors.white70)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                onTap: () => RingtonePage.open(context),
+              ),
+            ),
+            const SizedBox(height: 16),
             const ConverterCard(),
             const SizedBox(height: 16),
             Container(

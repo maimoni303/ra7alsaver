@@ -128,7 +128,7 @@ jobs:
       - name: Build APK
         run: |
           set -o pipefail
-          flutter build apk --release --build-name=1.2.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_VERSION=1.2.${{ github.run_number }} 2>&1 | tee build.log || {
+          flutter build apk --release --target-platform android-arm64 --build-name=1.2.${{ github.run_number }} --build-number=${{ github.run_number }} --dart-define=APP_VERSION=1.2.${{ github.run_number }} 2>&1 | tee build.log || {
             grep -E "error|Error|FAILURE|What went wrong|Exception" build.log | tail -25 | sed 's/^/::error::/'
             tail -40 build.log | sed 's/^/::warning::/'
             exit 1

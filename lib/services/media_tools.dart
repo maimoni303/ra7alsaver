@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
 import '../l10n.dart';
@@ -87,6 +88,36 @@ class MediaTools {
     }
     // 2) Re-encode to codecs that play everywhere for that format.
     await _run([...ins, ...maps, ..._encode(ext, keepVideo, keepAudio), ...tail]);
+  }
+
+  /// Length of a media file in seconds (0 when unknown).
+  static Future<double> duration(String path) async {
+    try {
+      final s = await FFprobeKit.getMediaInformation(path);
+      return double.tryParse(s.getMediaInformation()?.getDuration() ?? '') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Cuts [length] seconds from [start] into a ringtone.
+  /// iPhone: AAC in an .m4r (MPEG-4) file, 44.1 kHz stereo, at most 40 s — the format iOS
+  /// requires for ringtones (about 0.8 MB). Android: MP3, 44.1 kHz.
+  static Future<void> ringtone(String input, String out,
+      {required double start, required double length, required bool iphone, bool fade = true}) async {
+    final len = iphone ? length.clamp(1, 40).toDouble() : length.clamp(1, 60).toDouble();
+    final fadeLen = len >= 6 ? 1.0 : 0.3;
+    await _run([
+      '-ss', start.toStringAsFixed(2),
+      '-t', len.toStringAsFixed(2),
+      '-i', input,
+      '-vn', '-map', '0:a:0',
+      '-ac', '2', '-ar', '44100',
+      if (fade) ...['-af', 'afade=t=in:st=0:d=$fadeLen,afade=t=out:st=${(len - fadeLen).toStringAsFixed(2)}:d=$fadeLen'],
+      if (iphone) ...['-c:a', 'aac', '-b:a', '160k', '-f', 'ipod', '-movflags', '+faststart']
+      else ...['-c:a', 'libmp3lame', '-b:a', '192k', '-f', 'mp3'],
+      out,
+    ]);
   }
 
   static bool _copyable(String ext) => const ['mp4', 'mkv', 'mov', 'webm', 'm4a', 'aac', 'avi'].contains(ext);
