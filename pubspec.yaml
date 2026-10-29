@@ -20,7 +20,7 @@ dependencies:
   google_fonts: ^6.2.1
   gal: ^2.3.0
   local_auth: ^2.3.0
-  share_plus: ^10.1.4
+  share_plus: ^13.3.1
   url_launcher: ^6.3.1
   file_picker: ^13.3.0
 
