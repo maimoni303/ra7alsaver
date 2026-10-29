@@ -59,19 +59,43 @@ Future<void> waitFor(WidgetTester t, Finder f, {Duration timeout = const Duratio
   throw TestFailure('Timed out (${timeout.inSeconds}s) waiting for ${what ?? f.describeMatch(Plurality.one)}');
 }
 
+/// Scrolls the lists on screen until [f] is built (long lists only build what is visible).
+Future<void> reveal(WidgetTester t, Finder f) async {
+  for (var i = 0; i < 40 && f.evaluate().isEmpty; i++) {
+    final lists = find.byType(Scrollable);
+    if (lists.evaluate().isEmpty) break;
+    await t.drag(lists.last, const Offset(0, -300), warnIfMissed: false);
+    await t.pump(const Duration(milliseconds: 250));
+  }
+  if (f.evaluate().isEmpty) throw TestFailure('Not on screen: ${f.describeMatch(Plurality.one)}');
+}
+
 Future<void> tap(WidgetTester t, Finder f) async {
+  await reveal(t, f);
   await t.ensureVisible(f.first);
   await t.pump(const Duration(milliseconds: 200));
   await t.tap(f.first, warnIfMissed: false);
   await t.pump(const Duration(milliseconds: 400));
 }
 
+late WidgetTester _t;
+
 Future<void> step(String name, Future<void> Function() body, {bool blocking = true}) async {
   try {
     await body();
     report.add(name, true, '', blocking: blocking);
-  } catch (e) {
-    report.add(name, false, e.toString().split('\n').first, blocking: blocking);
+  } catch (e, st) {
+    report.add(name, false, e.toString().replaceAll('\n', ' '), blocking: blocking);
+    // ignore: avoid_print
+    print('---- $name\n$e\n$st');
+    // Close any sheet, menu or dialog left open so the next step starts clean.
+    try {
+      for (final n in find.byType(Navigator).evaluate()) {
+        final st = (n as StatefulElement).state;
+        if (st is NavigatorState) st.popUntil((r) => r.isFirst);
+      }
+      await _t.pump(const Duration(milliseconds: 600));
+    } catch (_) {}
   }
 }
 
@@ -98,6 +122,7 @@ void main() {
   });
 
   testWidgets('RA7AL Files Downloader — every page, tool and button', (t) async {
+    _t = t;
     app.main();
     await waitFor(t, find.text('Save from a link'), timeout: const Duration(seconds: 40), what: 'the Save page');
     SaverState state() => Provider.of<SaverState>(t.element(find.byType(MaterialApp)), listen: false);
@@ -106,16 +131,28 @@ void main() {
     Future<void> saveLink(String url) async {
       await t.enterText(find.byType(TextField).first, url);
       await t.pump(const Duration(milliseconds: 300));
+      FocusManager.instance.primaryFocus?.unfocus();
+      await t.pump(const Duration(milliseconds: 300));
+      final before = state().tasks.length;
       await tap(t, find.widgetWithText(PrimaryButton, 'Save'));
+      final started = DateTime.now().add(const Duration(seconds: 30));
+      while (state().tasks.length == before && DateTime.now().isBefore(started)) {
+        await t.pump(const Duration(milliseconds: 250));
+      }
+      if (state().tasks.length == before) {
+        throw TestFailure('Tapping Save did not start a download (resolving=${state().resolving}, '
+            'message on screen: ${find.textContaining(RegExp('Error|failed|valid|server')).evaluate().map((e) => (e.widget as Text).data).join(' / ')})');
+      }
       saved++;
+      final task = state().tasks.first;
       final end = DateTime.now().add(const Duration(seconds: 180));
       while (DateTime.now().isBefore(end)) {
         await t.pump(const Duration(milliseconds: 300));
-        final errs = state().tasks.where((x) => x.error != null);
-        if (errs.isNotEmpty) throw TestFailure(errs.first.error!);
-        if (state().tasks.where((x) => x.done).length >= saved) return;
+        if (task.error != null) throw TestFailure(task.error!);
+        if (task.done) return;
       }
-      throw TestFailure('Download did not finish in 3 minutes');
+      throw TestFailure('Download did not finish in 3 minutes (progress ${task.progress}, file ${task.item.filename}, '
+          'stream ${task.item.stream}, post ${task.item.post})');
     }
 
     // ---------------- Save page
@@ -250,13 +287,23 @@ void main() {
       await pumpFor(t, const Duration(seconds: 1));
     });
 
-    await step('My files: "Make a ringtone" (iPhone and Android) from the file menu', () async {
+    await step('My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result', () async {
       await tap(t, optionsOf(mp4.uri.pathSegments.last));
       await tap(t, find.text('Make a ringtone'));
       await waitFor(t, find.text('Make ringtone'), what: 'the ringtone page');
+      await tap(t, find.text('Listen to the selection'));
+      await waitFor(t, find.textContaining('Stop'), timeout: const Duration(seconds: 10), what: 'the selection preview');
+      await pumpFor(t, const Duration(seconds: 2));
+      await tap(t, find.textContaining('Stop'));
+      await waitFor(t, find.text('Listen to the selection'), timeout: const Duration(seconds: 5));
       await tap(t, find.text('iPhone'));
       await tap(t, find.text('Make ringtone'));
       await waitFor(t, find.textContaining('Ringtone ready'), timeout: const Duration(seconds: 90));
+      await tap(t, find.text('Play the ringtone'));
+      await waitFor(t, find.textContaining('Stop'), timeout: const Duration(seconds: 10), what: 'the ringtone playing');
+      await pumpFor(t, const Duration(seconds: 2));
+      await tap(t, find.textContaining('Stop'));
+      await waitFor(t, find.text('Play the ringtone'), timeout: const Duration(seconds: 5));
       await tap(t, find.text('Android'));
       await tap(t, find.text('Make ringtone'));
       await waitFor(t, find.textContaining('Ringtone ready'), timeout: const Duration(seconds: 90));

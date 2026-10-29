@@ -179,6 +179,16 @@ jobs:
         run: |
           { echo "## Android test report"; echo '```'; grep -E "(PASS|FAIL|WARN)  |^PASS \||^FAIL \||^WARN \||Passed [0-9]+ of" test.log || echo "no report (see the log)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           grep -E "FAIL  " test.log | sed 's/^/::error::Android: /' || true
+      - name: Keep the full log on the test-reports branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tail -n 600 test.log > report.txt 2>/dev/null || echo "no log" > report.txt
+          SHA=$(gh api "repos/${{ github.repository }}/contents/android.txt?ref=test-reports" -q .sha 2>/dev/null || true)
+          gh api -X PUT "repos/${{ github.repository }}/contents/android.txt" \
+            -f message="Android test report ${{ github.sha }}" -f branch=test-reports \
+            -f content="$(base64 < report.txt | tr -d '\n')" ${SHA:+-f sha=$SHA} >/dev/null || true
 
   test-ios:
     needs: analyze
@@ -204,6 +214,16 @@ jobs:
         run: |
           { echo "## iPhone test report"; echo '```'; grep -E "(PASS|FAIL|WARN)  |^PASS \||^FAIL \||^WARN \||Passed [0-9]+ of" test.log || echo "no report (see the log)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           grep -E "FAIL  " test.log | sed 's/^/::error::iPhone: /' || true
+      - name: Keep the full log on the test-reports branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tail -n 600 test.log > report.txt 2>/dev/null || echo "no log" > report.txt
+          SHA=$(gh api "repos/${{ github.repository }}/contents/iphone.txt?ref=test-reports" -q .sha 2>/dev/null || true)
+          gh api -X PUT "repos/${{ github.repository }}/contents/iphone.txt" \
+            -f message="iPhone test report ${{ github.sha }}" -f branch=test-reports \
+            -f content="$(base64 < report.txt | tr -d '\n')" ${SHA:+-f sha=$SHA} >/dev/null || true
 
   release:
     needs: [windows, macos, ios, android, test-android, test-ios]

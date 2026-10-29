@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -34,6 +37,13 @@ class _RingtonePageState extends State<RingtonePage> {
   bool _iphone = Platform.isIOS || Platform.isMacOS;
   bool _fade = true;
   bool _busy = false, _loading = false;
+
+  // Listening: the selected part of the clip before making the tone, or the finished tone before saving it.
+  final _player = Player();
+  StreamSubscription<Duration>? _posSub;
+  StreamSubscription<bool>? _playSub;
+  String? _playing; // 'part' | 'tone' | null
+  Duration _pos = Duration.zero;
   String? _msg;
   bool _ok = false;
   File? _result;
@@ -44,10 +54,72 @@ class _RingtonePageState extends State<RingtonePage> {
   void initState() {
     super.initState();
     if (widget.source != null) _load(widget.source!);
+    _posSub = _player.stream.position.listen((p) {
+      if (!mounted || _playing == null) return;
+      // The part preview stops at the chosen end point.
+      if (_playing == 'part' && p.inMilliseconds >= (_range.end * 1000).round()) {
+        _stop();
+        return;
+      }
+      setState(() => _pos = p);
+    });
+    _playSub = _player.stream.completed.listen((done) {
+      if (done && mounted) setState(() => _playing = null);
+    });
+  }
+
+  Future<void> _stop() async {
+    await _player.pause();
+    if (mounted) setState(() => _playing = null);
+  }
+
+  Future<void> _listenPart() async {
+    if (_playing == 'part') return _stop();
+    final src = _src;
+    if (src == null) return;
+    await _player.open(Media(src.path), play: false);
+    // Wait until the file is ready, then jump to the start of the selection.
+    for (var i = 0; i < 40 && _player.state.duration == Duration.zero; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    await _player.seek(Duration(milliseconds: (_range.start * 1000).round()));
+    setState(() {
+      _playing = 'part';
+      _pos = Duration(milliseconds: (_range.start * 1000).round());
+    });
+    await _player.play();
+  }
+
+  Future<void> _listenTone() async {
+    if (_playing == 'tone') return _stop();
+    final r = _result;
+    if (r == null) return;
+    await _player.open(Media(r.path));
+    setState(() {
+      _playing = 'tone';
+      _pos = Duration.zero;
+    });
+  }
+
+  Widget _listenButton({required bool on, required String label, required VoidCallback onTap, String? time}) {
+    final c = context.c;
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: on ? c.onAccent : c.accent,
+        backgroundColor: on ? c.accent : null,
+        side: BorderSide(color: c.accent),
+      ),
+      icon: Icon(on ? Icons.stop_rounded : Icons.play_arrow_rounded),
+      label: Text(on && time != null ? '$label · $time' : label),
+    );
   }
 
   @override
   void dispose() {
+    _posSub?.cancel();
+    _playSub?.cancel();
+    _player.dispose();
     _temp?.delete().catchError((_) => File(''));
     super.dispose();
   }
@@ -117,6 +189,7 @@ class _RingtonePageState extends State<RingtonePage> {
   }
 
   void _onRange(RangeValues v) {
+    if (_playing != null) _stop();
     var r = v;
     if (r.end - r.start > _max) {
       // Keep the moved handle where the finger is and pull the other one along.
@@ -137,6 +210,7 @@ class _RingtonePageState extends State<RingtonePage> {
   Future<void> _make() async {
     final src = _src;
     if (src == null) return;
+    await _stop();
     final s = context.read<SaverState>();
     setState(() {
       _busy = true;
@@ -252,6 +326,16 @@ class _RingtonePageState extends State<RingtonePage> {
             ] else
               Text(tx('لم أتمكن من قراءة طول المقطع؛ سيُؤخذ أول ${_t(_max)}.', 'Couldn’t read the clip length; the first ${_t(_max)} will be used.'),
                   style: TextStyle(color: c.muted)),
+            const SizedBox(height: 4),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: _listenButton(
+                on: _playing == 'part',
+                label: _playing == 'part' ? tx('إيقاف', 'Stop') : tx('استمع للجزء المحدد', 'Listen to the selection'),
+                time: _t(_pos.inMilliseconds / 1000),
+                onTap: _listenPart,
+              ),
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _fade,
@@ -267,9 +351,15 @@ class _RingtonePageState extends State<RingtonePage> {
           ]),
         if (_result != null)
           card([
-            Text(tx('٤. ضعها نغمة رنين', '4. Set it as your ringtone'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(tx('٤. استمع إليها ثم احفظها نغمة رنين', '4. Listen, then set it as your ringtone'), style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
             Wrap(spacing: 10, runSpacing: 10, children: [
+              _listenButton(
+                on: _playing == 'tone',
+                label: _playing == 'tone' ? tx('إيقاف', 'Stop') : tx('استمع للنغمة', 'Play the ringtone'),
+                time: _t(_pos.inMilliseconds / 1000),
+                onTap: _listenTone,
+              ),
               if (Platform.isIOS)
                 OutlinedButton.icon(
                   onPressed: () => s.exportFile(_result!),
