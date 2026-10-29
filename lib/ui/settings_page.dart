@@ -95,7 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
         tx('داخل التطبيق فقط («ملفاتي»)', 'Inside the app only (My files)'),
         s.canPickFolder
             ? tx('مجلد خاص بالتطبيق', 'The app’s private folder')
-            : tx('يظهر في «الملفات» ← على الـ iPhone ← RA7AL SAVER', 'Shows in Files → On My iPhone → RA7AL SAVER'),
+            : tx('يظهر في «الملفات» ← على الـ iPhone ← RA7AL Files Downloader', 'Shows in Files → On My iPhone → RA7AL Files Downloader'),
       ),
       if (s.canPickFolder) ...[
         option(SaveLocation.downloads, Icons.download_rounded, tx('مجلد التنزيلات', 'Downloads folder'),
@@ -276,7 +276,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
             head(tx('حول التطبيق', 'About')),
             card([
-              const ListTile(contentPadding: EdgeInsets.zero, leading: Ra7alLogo(size: 36), title: Text('RA7AL AL3OMR SAVER'), subtitle: Text('v$kAppVersion · GPL-3.0')),
+              const ListTile(contentPadding: EdgeInsets.zero, leading: Ra7alLogo(size: 36), title: Text('RA7AL Files Downloader'), subtitle: Text('v$kAppVersion · GPL-3.0')),
               Text(
                   tx('أداة شخصية مفتوحة المصدر. احترم حقوق أصحاب المحتوى وشروط المنصات، ولا تعيد نشر محتوى الآخرين بدون إذنهم.',
                       'A personal, open-source tool. Respect creators’ rights and platform terms; do not republish others’ content without permission.'),

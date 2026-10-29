@@ -1,6 +1,6 @@
-# RA7AL AL3OMR SAVER
+# RA7AL Files Downloader
 
-![RA7AL AL3OMR SAVER](docs/brand/ra7al_saver_logo.gif)
+![RA7AL Files Downloader](docs/brand/ra7al_saver_logo.gif)
 
 [![Build](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/maimoni303/ra7alsaver?label=download&display_name=tag)](../../releases/tag/latest)
@@ -23,10 +23,10 @@ Save videos, photos and audio from links, with a private, biometric-locked file 
 ## التحميل والتثبيت
 | النظام | الملف | طريقة التثبيت |
 |---|---|---|
-| أندرويد | `RA7AL-SAVER-Android.apk` | نزّله على الجوال وافتحه، واسمح بـ«التثبيت من مصادر غير معروفة» عند الطلب. |
-| ويندوز | `RA7AL-SAVER-Windows.zip` | فك الضغط وشغّل `ra7alsaver.exe`. إذا ظهر SmartScreen: «مزيد من المعلومات» ← «تشغيل على أي حال». |
-| ماك | `RA7AL-SAVER-macOS.dmg` | افتح الملف واسحب التطبيق إلى Applications. أول مرة: كليك يمين على التطبيق ← «فتح». |
-| آيفون | `RA7AL-SAVER-iPhone-unsigned.ipa` | غير موقّع؛ ثبّته عبر AltStore أو Sideloadly بحساب Apple الخاص بك. |
+| أندرويد | `RA7AL-Files-Downloader-Android.apk` | نزّله على الجوال وافتحه، واسمح بـ«التثبيت من مصادر غير معروفة» عند الطلب. |
+| ويندوز | `RA7AL-Files-Downloader-Windows.zip` | فك الضغط وشغّل `ra7alsaver.exe`. إذا ظهر SmartScreen: «مزيد من المعلومات» ← «تشغيل على أي حال». |
+| ماك | `RA7AL-Files-Downloader-macOS.dmg` | افتح الملف واسحب التطبيق إلى Applications. أول مرة: كليك يمين على التطبيق ← «فتح». |
+| آيفون | `RA7AL-Files-Downloader-iPhone-unsigned.ipa` | غير موقّع؛ ثبّته عبر AltStore أو Sideloadly بحساب Apple الخاص بك. |
 
 الروابط: [أحدث إصدار لكل الأنظمة](../../releases/tag/latest) · [أندرويد مباشرة](../../releases/tag/android)
 
@@ -91,10 +91,10 @@ flutter run
 ### Install
 | Platform | File | How |
 |---|---|---|
-| Android | `RA7AL-SAVER-Android.apk` | Open it on the phone and allow *Install unknown apps* if asked. |
-| Windows | `RA7AL-SAVER-Windows.zip` | Unzip and run `ra7alsaver.exe` (SmartScreen: *More info → Run anyway*). |
-| macOS | `RA7AL-SAVER-macOS.dmg` | Drag to Applications; first launch: right-click → *Open*. |
-| iPhone | `RA7AL-SAVER-iPhone-unsigned.ipa` | Unsigned — sideload with AltStore or Sideloadly. |
+| Android | `RA7AL-Files-Downloader-Android.apk` | Open it on the phone and allow *Install unknown apps* if asked. |
+| Windows | `RA7AL-Files-Downloader-Windows.zip` | Unzip and run `ra7alsaver.exe` (SmartScreen: *More info → Run anyway*). |
+| macOS | `RA7AL-Files-Downloader-macOS.dmg` | Drag to Applications; first launch: right-click → *Open*. |
+| iPhone | `RA7AL-Files-Downloader-iPhone-unsigned.ipa` | Unsigned — sideload with AltStore or Sideloadly. |
 
 Downloads: [latest release](../../releases/tag/latest) · [Android only](../../releases/tag/android)
 

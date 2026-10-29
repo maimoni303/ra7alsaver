@@ -1,5 +1,5 @@
 name: ra7alsaver
-description: RA7AL AL3OMR SAVER — free, open-source media saver and private file manager.
+description: RA7AL Files Downloader — free, open-source downloader for any site, and a private file manager.
 publish_to: 'none'
 version: 1.2.0+2
 
@@ -24,8 +24,8 @@ dependencies:
   url_launcher: ^6.3.1
   file_picker: ^13.3.0
   youtube_explode_dart: ^3.1.0
-  ra7al_muxer:
-    path: packages/ra7al_muxer
+  ffmpeg_kit_flutter_new: ^4.6.3
+  webview_flutter: ^4.10.0
 
 dependency_overrides:
   # Native local_auth_windows fails on VS 2026; use a Dart-only stand-in.

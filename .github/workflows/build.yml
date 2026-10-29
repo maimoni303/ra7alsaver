@@ -1,4 +1,4 @@
-name: Build RA7AL SAVER
+name: Build RA7AL Files Downloader
 
 on:
   push:
@@ -60,11 +60,11 @@ jobs:
         run: |
           mkdir -p dist
           cd build/windows/x64/runner/Release
-          7z a -tzip "$GITHUB_WORKSPACE/dist/RA7AL-SAVER-Windows.zip" . >/dev/null
+          7z a -tzip "$GITHUB_WORKSPACE/dist/RA7AL-Files-Downloader-Windows.zip" . >/dev/null
       - uses: actions/upload-artifact@v5
         with:
           name: windows
-          path: dist/RA7AL-SAVER-Windows.zip
+          path: dist/RA7AL-Files-Downloader-Windows.zip
 
   macos:
     needs: analyze
@@ -82,13 +82,13 @@ jobs:
           mkdir -p dist dmg
           APP=$(ls -d build/macos/Build/Products/Release/*.app | head -1)
           codesign --force --deep --sign - "$APP" || true
-          cp -R "$APP" "dmg/RA7AL SAVER.app"
+          cp -R "$APP" "dmg/RA7AL Files Downloader.app"
           ln -s /Applications dmg/Applications
-          hdiutil create -volname "RA7AL SAVER" -srcfolder dmg -ov -format UDZO dist/RA7AL-SAVER-macOS.dmg
+          hdiutil create -volname "RA7AL Files Downloader" -srcfolder dmg -ov -format UDZO dist/RA7AL-Files-Downloader-macOS.dmg
       - uses: actions/upload-artifact@v5
         with:
           name: macos
-          path: dist/RA7AL-SAVER-macOS.dmg
+          path: dist/RA7AL-Files-Downloader-macOS.dmg
 
   ios:
     needs: analyze
@@ -105,11 +105,11 @@ jobs:
         run: |
           mkdir -p dist Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -qry dist/RA7AL-SAVER-iPhone-unsigned.ipa Payload
+          zip -qry dist/RA7AL-Files-Downloader-iPhone-unsigned.ipa Payload
       - uses: actions/upload-artifact@v5
         with:
           name: ios
-          path: dist/RA7AL-SAVER-iPhone-unsigned.ipa
+          path: dist/RA7AL-Files-Downloader-iPhone-unsigned.ipa
 
   android:
     needs: analyze
@@ -136,21 +136,21 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/RA7AL-SAVER-Android.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/RA7AL-Files-Downloader-Android.apk
       - name: Publish Android right away
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           gh release delete android --cleanup-tag -y || true
-          gh release create android dist/RA7AL-SAVER-Android.apk \
+          gh release create android dist/RA7AL-Files-Downloader-Android.apk \
             --target "${{ github.sha }}" \
-            --title "RA7AL SAVER — أندرويد" \
+            --title "RA7AL Files Downloader — أندرويد" \
             --notes "نزّل الملف على الجوال وافتحه، واسمح بالتثبيت من مصادر غير معروفة إذا طُلب منك."
       - uses: actions/upload-artifact@v5
         with:
           name: android
-          path: dist/RA7AL-SAVER-Android.apk
+          path: dist/RA7AL-Files-Downloader-Android.apk
 
   release:
     needs: [windows, macos, ios, android]
@@ -168,5 +168,5 @@ jobs:
           gh release delete latest --cleanup-tag -y || true
           gh release create latest dist/* \
             --target "${{ github.sha }}" \
-            --title "RA7AL SAVER — أحدث إصدار" \
+            --title "RA7AL Files Downloader — أحدث إصدار" \
             --notes "نسخ ويندوز وماك وآيفون وأندرويد. طريقة التثبيت في ملف README."

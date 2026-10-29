@@ -35,6 +35,9 @@ class MediaItem {
 
   /// Second stream to merge with this one (YouTube HD audio).
   final MediaItem? extra;
+
+  /// A streaming playlist (HLS .m3u8 / DASH .mpd) that FFmpeg saves into one file.
+  final bool stream;
   const MediaItem({
     required this.url,
     required this.filename,
@@ -45,6 +48,7 @@ class MediaItem {
     this.open,
     this.post = PostProcess.none,
     this.extra,
+    this.stream = false,
   });
 
   MediaItem copyWith({String? filename, String? type, PostProcess? post, MediaItem? extra}) => MediaItem(
@@ -57,6 +61,7 @@ class MediaItem {
         open: open,
         post: post ?? this.post,
         extra: extra ?? this.extra,
+        stream: stream,
       );
 }
 

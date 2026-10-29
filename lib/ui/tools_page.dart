@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n.dart';
 import '../theme.dart';
+import 'converter_card.dart';
 import 'widgets.dart';
 
 /// Extra tools. First one: WhatsApp a number without saving it.
@@ -53,6 +54,8 @@ class _ToolsPageState extends State<ToolsPage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(tx('أدوات', 'Tools'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
             const SizedBox(height: 20),
+            const ConverterCard(),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: c.card, border: Border.all(color: c.line), borderRadius: BorderRadius.circular(16)),
@@ -112,8 +115,8 @@ class _ToolsPageState extends State<ToolsPage> {
             ),
             const SizedBox(height: 16),
             Text(
-                tx('أدوات قادمة: قص المقاطع، استخراج الصوت، تحويل الكلام إلى نص.',
-                    'Coming next: trim clips, extract audio, speech to text.'),
+                tx('أدوات قادمة: قص المقاطع، تحويل الكلام إلى نص.',
+                    'Coming next: trim clips, speech to text.'),
                 style: TextStyle(color: c.faint, fontSize: 13)),
           ]),
         ),

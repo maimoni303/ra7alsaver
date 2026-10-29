@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n.dart';
 
 import '../services/cobalt.dart';
+import '../services/media_tools.dart';
 import '../state/saver_state.dart';
 import '../theme.dart';
 import 'widgets.dart';
@@ -207,6 +208,22 @@ class _SavePageState extends State<SavePage> {
                     if (v != null) s.setQuality(v);
                   },
                 ),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(tx('الصيغة: ', 'Format: '), style: TextStyle(color: c.muted)),
+                DropdownButton<String>(
+                  value: s.mode == SaveMode.audio ? s.audioFormat : s.videoFormat,
+                  underline: const SizedBox(),
+                  borderRadius: BorderRadius.circular(12),
+                  items: [
+                    for (final f in (s.mode == SaveMode.audio ? Formats.audio : Formats.video))
+                      DropdownMenuItem(value: f, child: Text(f.toUpperCase())),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    s.mode == SaveMode.audio ? s.setAudioFormat(v) : s.setVideoFormat(v);
+                  },
+                ),
+              ]),
             ]),
             if (_error != null) ...[
               const SizedBox(height: 12),

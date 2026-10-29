@@ -58,7 +58,7 @@ class BrandTitle extends StatelessWidget {
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
         Ra7alLogo(size: size * 1.7),
         const SizedBox(width: 10),
-        Text('RA7AL SAVER', style: TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: context.c.text)),
+        Text('RA7AL Files Downloader', style: TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: context.c.text)),
       ]);
 }
 

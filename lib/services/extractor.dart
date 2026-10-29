@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:ra7al_muxer/ra7al_muxer.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 import '../l10n.dart';
@@ -51,8 +50,9 @@ class Extractor {
 
   static Future<List<MediaItem>> _dispatch(Uri uri, SaveMode mode, String quality, int depth) async {
     final host = uri.host.toLowerCase();
+    if (_isStreamUrl(uri.toString())) return [_streamItem(uri.toString(), const {})];
     if (_isDirect(uri.path)) {
-      return [MediaItem(url: uri.toString(), filename: uri.pathSegments.isEmpty ? 'ra7al.mp4' : uri.pathSegments.last, type: _typeOf(uri.path))];
+      return [MediaItem(url: uri.toString(), filename: uri.pathSegments.isEmpty ? 'ra7al.mp4' : Uri.decodeComponent(uri.pathSegments.last), type: _typeOf(uri.path))];
     }
     if (host.contains('youtube.com') || host == 'youtu.be') return _youtube(uri.toString(), mode, quality);
     if (host.contains('tiktok.com')) return _tiktok(uri);
@@ -62,6 +62,7 @@ class Extractor {
 
     // Short links (lnkd.in, t.co, bit.ly, fb.watch, pin.it…): follow them, then read the real page.
     final r = await _get(uri, ua: _desktopUa);
+    if (r.isFile) return [_fileItem(r)];
     if (depth < 3) {
       final dest = r.finalUri;
       if (_known(dest.host.toLowerCase())) return _dispatch(dest, mode, quality, depth + 1);
@@ -77,13 +78,8 @@ class Extractor {
   /// Audio-only and muted saves: the file is reduced on the device after download.
   static MediaItem _applyMode(MediaItem i, SaveMode mode) {
     if (i.type != 'video' || i.post != PostProcess.none) return i;
-    if (mode == SaveMode.audio) {
-      if (!Ra7alMuxer.supported) {
-        throw CobaltException(tx('حفظ الصوت فقط متاح على الجوال (آيفون وأندرويد)', 'Audio-only saving is available on iPhone and Android'));
-      }
-      return i.copyWith(post: PostProcess.audioOnly, type: 'audio', filename: _swapExt(i.filename, 'm4a'));
-    }
-    if (mode == SaveMode.mute && Ra7alMuxer.supported) return i.copyWith(post: PostProcess.videoOnly);
+    if (mode == SaveMode.audio) return i.copyWith(post: PostProcess.audioOnly, type: 'audio');
+    if (mode == SaveMode.mute) return i.copyWith(post: PostProcess.videoOnly);
     return i;
   }
 
@@ -119,7 +115,7 @@ class Extractor {
         s.container == StreamContainer.mp4 &&
         s.videoResolution.height <= maxH &&
         (s.videoCodec.startsWith('avc1') || (s.videoResolution.height > 1080 && s.videoCodec.startsWith('av01'))));
-    if (Ra7alMuxer.supported && candidates.isNotEmpty && (m4a.isNotEmpty || mode == SaveMode.mute)) {
+    if (candidates.isNotEmpty && (m4a.isNotEmpty || mode == SaveMode.mute)) {
       final v = candidates.bestQuality;
       final muxed = manifest.muxed.isEmpty ? null : manifest.muxed.bestQuality;
       if (muxed == null || v.videoResolution.height > muxed.videoResolution.height || mode == SaveMode.mute) {
@@ -355,7 +351,21 @@ class Extractor {
 
     for (final p in ['og:video:secure_url', 'og:video:url', 'og:video', 'twitter:player:stream']) {
       final v = meta(p);
-      if (v != null && v.startsWith('http') && !v.contains('/embed')) return [MediaItem(url: v, filename: name('mp4'), type: 'video')];
+      if (v != null && v.startsWith('http') && !v.contains('/embed')) {
+        if (_isStreamUrl(v)) return [_streamItem(v, {'Referer': r.finalUri.toString(), 'User-Agent': _desktopUa})];
+        return [MediaItem(url: v, filename: name('mp4'), type: 'video', headers: {'Referer': r.finalUri.toString()})];
+      }
+    }
+    // Streaming playlists written anywhere in the page (most video players).
+    final hls = RegExp(r'''(https?:(?:\\?/){2}[^"'\s<>]+?\.(?:m3u8|mpd)[^"'\s<>]*)''').firstMatch(html);
+    if (hls != null) {
+      return [_streamItem(_unescape(hls.group(1)!.replaceAll(r'\/', '/')), {'Referer': r.finalUri.toString(), 'User-Agent': _desktopUa})];
+    }
+    // Plain <video>/<source> tags.
+    final tag = RegExp(r'''<(?:video|source)[^>]+src=["']([^"']+\.(?:mp4|webm|mov|m4v)[^"']*)["']''', caseSensitive: false).firstMatch(html);
+    if (tag != null) {
+      final u = r.finalUri.resolve(_html(tag.group(1)!)).toString();
+      return [MediaItem(url: u, filename: name('mp4'), type: 'video', headers: {'Referer': r.finalUri.toString()})];
     }
     // JSON-LD VideoObject (Snapchat, Pinterest, many news sites).
     final cu = RegExp(r'"contentUrl"\s*:\s*"(https?:[^"]+)"').firstMatch(html);
@@ -369,6 +379,49 @@ class Extractor {
   }
 
   // ---------------------------------------------------------------- helpers
+  static bool _isStreamUrl(String u) => RegExp(r'\.(m3u8|mpd)(\?|#|$)', caseSensitive: false).hasMatch(u);
+
+  static MediaItem _streamItem(String url, Map<String, String> headers, {String name = ''}) => MediaItem(
+        url: url,
+        filename: '${name.isEmpty ? 'stream_${DateTime.now().millisecondsSinceEpoch}' : name}.mp4',
+        type: 'video',
+        headers: headers,
+        stream: true,
+      );
+
+  /// Any downloadable file (PDF, ZIP, APK, documents, media…) — named from the server's
+  /// Content-Disposition, the link, or its type.
+  static MediaItem _fileItem(_Page r) {
+    if (r.mime.contains('mpegurl') || r.mime.contains('dash+xml')) return _streamItem(r.finalUri.toString(), const {});
+    var name = '';
+    final d = RegExp(r'''filename\*=(?:UTF-8'')?([^;]+)|filename="?([^";]+)"?''', caseSensitive: false).firstMatch(r.disposition);
+    if (d != null) name = Uri.decodeComponent((d.group(1) ?? d.group(2) ?? '').trim());
+    if (name.isEmpty && r.finalUri.pathSegments.isNotEmpty) name = Uri.decodeComponent(r.finalUri.pathSegments.last);
+    if (!name.contains('.')) {
+      final ext = _extFor(r.mime);
+      name = '${name.isEmpty ? 'file_${DateTime.now().millisecondsSinceEpoch}' : name}${ext.isEmpty ? '' : '.$ext'}';
+    }
+    final kind = r.mime.startsWith('video/') ? 'video' : r.mime.startsWith('audio/') ? 'audio' : r.mime.startsWith('image/') ? (r.mime.contains('gif') ? 'gif' : 'photo') : 'other';
+    return MediaItem(url: r.finalUri.toString(), filename: name, type: kind, size: r.length > 0 ? r.length : 0);
+  }
+
+  static String _extFor(String mime) => switch (mime) {
+        'video/mp4' => 'mp4',
+        'video/webm' => 'webm',
+        'video/quicktime' => 'mov',
+        'audio/mpeg' => 'mp3',
+        'audio/mp4' => 'm4a',
+        'audio/wav' || 'audio/x-wav' => 'wav',
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+        'application/pdf' => 'pdf',
+        'application/zip' => 'zip',
+        'application/vnd.android.package-archive' => 'apk',
+        _ => mime.contains('/') ? mime.split('/').last.replaceAll(RegExp(r'[^a-z0-9]'), '') : '',
+      };
+
   static bool _isDirect(String path) => RegExp(r'\.(mp4|mov|m4v|webm|mkv|mp3|m4a|aac|wav|flac|jpg|jpeg|png|webp|gif)$', caseSensitive: false).hasMatch(path);
 
   static String _typeOf(String path) {
@@ -379,16 +432,11 @@ class Extractor {
     return 'video';
   }
 
-  static String _swapExt(String name, String ext) {
-    final dot = name.lastIndexOf('.');
-    return '${dot > 0 ? name.substring(0, dot) : name}.$ext';
-  }
-
   static String _unescape(String s) {
     try {
       return jsonDecode('"$s"') as String;
     } catch (_) {
-      return s.replaceAll(r'\/', '/').replaceAll(r'&', '&');
+      return s.replaceAll(r'\/', '/').replaceAll(r'\u0026', '&');
     }
   }
 
@@ -405,8 +453,14 @@ class Extractor {
         ..set(HttpHeaders.acceptHeader, 'text/html,application/json;q=0.9,*/*;q=0.8')
         ..set(HttpHeaders.acceptLanguageHeader, 'en-US,en;q=0.9');
       final res = await req.close().timeout(const Duration(seconds: 30));
-      final body = await res.transform(const Utf8Decoder(allowMalformed: true)).join().timeout(const Duration(seconds: 30));
       final finalUri = res.redirects.isEmpty ? uri : uri.resolveUri(res.redirects.last.location);
+      final mime = res.headers.contentType?.mimeType.toLowerCase() ?? '';
+      final textual = mime.isEmpty || mime.startsWith('text/') || mime.contains('json') || mime.contains('xml') && !mime.contains('dash');
+      if (!textual || mime.contains('mpegurl')) {
+        // A file, not a web page: don't read it here, it is downloaded later.
+        return _Page('', res.statusCode, finalUri, '', mime: mime, disposition: res.headers.value('content-disposition') ?? '', length: res.contentLength);
+      }
+      final body = await res.transform(const Utf8Decoder(allowMalformed: true)).join().timeout(const Duration(seconds: 30));
       var cookies = '';
       try {
         cookies = res.cookies.map((k) => '${k.name}=${k.value}').join('; ');
@@ -436,5 +490,8 @@ class _Page {
   final int status;
   final Uri finalUri;
   final String cookies;
-  _Page(this.body, this.status, this.finalUri, this.cookies);
+  final String mime, disposition;
+  final int length;
+  _Page(this.body, this.status, this.finalUri, this.cookies, {this.mime = 'text/html', this.disposition = '', this.length = -1});
+  bool get isFile => body.isEmpty && !mime.startsWith('text/') && mime.isNotEmpty;
 }

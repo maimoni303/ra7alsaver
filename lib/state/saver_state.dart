@@ -9,11 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n.dart';
 
-import 'package:ra7al_muxer/ra7al_muxer.dart';
-
 import '../services/cobalt.dart';
 import '../services/extractor.dart';
 import '../services/files.dart';
+import '../services/media_tools.dart';
 
 /// Where downloads go — one destination, no duplicates: the app's folder, the device
 /// Downloads folder, a folder the user picked, the Files app (iPhone, asked after each
@@ -39,6 +38,8 @@ class SaverState extends ChangeNotifier {
   String server = '';
   String apiKey = '';
   String quality = '1080';
+  String videoFormat = 'mp4';
+  String audioFormat = 'm4a';
   SaveMode mode = SaveMode.video;
   bool lockFiles = false;
   bool filesUnlocked = false;
@@ -63,6 +64,8 @@ class SaverState extends ChangeNotifier {
     server = _p.getString('server') ?? '';
     apiKey = _p.getString('apiKey') ?? '';
     quality = _p.getString('quality') ?? '1080';
+    videoFormat = _p.getString('videoFormat') ?? 'mp4';
+    audioFormat = _p.getString('audioFormat') ?? 'm4a';
     mode = SaveMode.values[(_p.getInt('mode') ?? 0).clamp(0, 2)];
     lockFiles = _p.getBool('lockFiles') ?? false;
     english = _p.getBool('english') ?? false;
@@ -103,6 +106,18 @@ class SaverState extends ChangeNotifier {
     apiKey = key.trim();
     await _p.setString('server', server);
     await _p.setString('apiKey', apiKey);
+    notifyListeners();
+  }
+
+  void setVideoFormat(String f) {
+    videoFormat = f;
+    _p.setString('videoFormat', f);
+    notifyListeners();
+  }
+
+  void setAudioFormat(String f) {
+    audioFormat = f;
+    _p.setString('audioFormat', f);
     notifyListeners();
   }
 
@@ -233,7 +248,7 @@ class SaverState extends ChangeNotifier {
 
   Future<bool> authenticate() async {
     try {
-      final ok = await _auth.authenticate(localizedReason: tx('افتح «ملفاتي» في RA7AL SAVER', 'Unlock “My files” in RA7AL SAVER'));
+      final ok = await _auth.authenticate(localizedReason: tx('افتح «ملفاتي» في RA7AL Files Downloader', 'Unlock “My files” in RA7AL Files Downloader'));
       if (ok) {
         filesUnlocked = true;
         notifyListeners();
@@ -318,30 +333,49 @@ class SaverState extends ChangeNotifier {
     }
   }
 
-  /// Downloads [it] and applies its post-processing (merge HD video with audio,
-  /// keep only the audio, or drop the audio). Temporary parts are hidden dot-files.
+  /// The extension a finished [it] gets: the chosen video/audio format, or its own for other files.
+  String _targetExt(MediaItem it) {
+    final own = it.filename.contains('.') ? it.filename.split('.').last.toLowerCase() : '';
+    if (it.type == 'audio' || it.post == PostProcess.audioOnly) return audioFormat;
+    if (it.type == 'video') return videoFormat;
+    return own;
+  }
+
+  /// Downloads [it], then joins/converts it with FFmpeg when needed (HD audio merge, streams,
+  /// audio-only, muted, or a different output format). Temporary parts are hidden dot-files.
   Future<File> _fetch(MediaItem it, void Function(double) progress) async {
-    if (it.post == PostProcess.none) {
+    final own = it.filename.contains('.') ? it.filename.split('.').last.toLowerCase() : '';
+    final target = _targetExt(it);
+    final plain = !it.stream && it.extra == null && it.post == PostProcess.none && (target.isEmpty || target == own);
+    if (plain) {
       return FileStore.download(it.url, it.filename, progress, headers: it.headers, open: it.open, size: it.size);
     }
     final parts = <File>[];
     try {
       final extra = it.extra;
       final share = extra == null ? 1.0 : (it.size > 0 && extra.size > 0 ? it.size / (it.size + extra.size) : 0.85);
-      final ext = it.filename.split('.').last;
-      parts.add(await FileStore.download(it.url, 'part_${DateTime.now().microsecondsSinceEpoch}.$ext', (p) => progress(p < 0 ? -1 : p * share * 0.98),
-          headers: it.headers, open: it.open, size: it.size, hidden: true));
+      if (it.stream) {
+        progress(-1);
+        final tmp = await FileStore.reserve('.part_${DateTime.now().microsecondsSinceEpoch}.mkv');
+        parts.add(tmp);
+        await MediaTools.grabStream(it.url, tmp.path, headers: it.headers);
+      } else {
+        parts.add(await FileStore.download(it.url, 'part_${DateTime.now().microsecondsSinceEpoch}.${own.isEmpty ? 'bin' : own}',
+            (p) => progress(p < 0 ? -1 : p * share * 0.95),
+            headers: it.headers, open: it.open, size: it.size, hidden: true));
+      }
       if (extra != null) {
         final e2 = extra.filename.split('.').last;
         parts.add(await FileStore.download(extra.url, 'part_${DateTime.now().microsecondsSinceEpoch}.$e2',
-            (p) => progress(p < 0 ? -1 : (share + p * (1 - share)) * 0.98),
+            (p) => progress(p < 0 ? -1 : (share + p * (1 - share)) * 0.95),
             headers: extra.headers, open: extra.open, size: extra.size, hidden: true));
       }
-      final out = await FileStore.reserve(it.filename);
+      progress(-1);
+      final out = await FileStore.reserve(_withExt(it.filename, target.isEmpty ? 'mp4' : target));
       try {
-        await Ra7alMuxer.remux(
-          inputs: parts.map((f) => f.path).toList(),
-          output: out.path,
+        await MediaTools.process(
+          parts.map((f) => f.path).toList(),
+          out.path,
           video: it.post != PostProcess.audioOnly,
           audio: it.post != PostProcess.videoOnly,
         );
@@ -357,6 +391,30 @@ class SaverState extends ChangeNotifier {
         } catch (_) {}
       }
     }
+  }
+
+  static String _withExt(String name, String ext) {
+    final dot = name.lastIndexOf('.');
+    return '${dot > 0 ? name.substring(0, dot) : name}.$ext';
+  }
+
+  /// Converts a file already on the device to [ext]; the result lands in the save destination.
+  Future<File> convertFile(File src, String ext) async {
+    final out = await FileStore.reserve(_withExt(src.uri.pathSegments.last, ext));
+    try {
+      await MediaTools.process([src.path], out.path);
+    } catch (_) {
+      if (await out.exists()) await out.delete();
+      rethrow;
+    }
+    final t = DownloadTask(MediaItem(url: '', filename: out.uri.pathSegments.last, type: FileStore.typeOf(out.path)))
+      ..file = out
+      ..progress = 1;
+    tasks.insert(0, t);
+    await _deliver(t);
+    await refreshFiles();
+    notifyListeners();
+    return out;
   }
 
   void clearFinished() {

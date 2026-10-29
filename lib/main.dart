@@ -56,7 +56,7 @@ class _SaverAppState extends State<SaverApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final s = context.watch<SaverState>();
     return MaterialApp(
-      title: 'RA7AL SAVER',
+      title: 'RA7AL Files Downloader',
       debugShowCheckedModeBanner: false,
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,

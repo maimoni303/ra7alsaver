@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generates the native platform folders with `flutter create`, then applies
-# RA7AL SAVER settings (cleartext servers, photos access, biometrics, network entitlement,
+# RA7AL Files Downloader settings (cleartext servers, photos access, biometrics, network entitlement,
 # deployment targets, display name, icons). Usage: tool/setup_platforms.sh ios|macos|windows
 set -euo pipefail
 PLATFORM="$1"
@@ -22,7 +22,7 @@ case "$PLATFORM" in
     PLIST=ios/Runner/Info.plist
     allow_http "$PLIST"
     pb -c "Delete :CFBundleDisplayName" "$PLIST"
-    pb -c "Add :CFBundleDisplayName string RA7AL SAVER" "$PLIST"
+    pb -c "Add :CFBundleDisplayName string RA7AL Files Downloader" "$PLIST"
     pb -c "Add :UIBackgroundModes array" "$PLIST"
     pb -c "Add :UIBackgroundModes:0 string audio" "$PLIST"
     pb -c "Add :LSApplicationCategoryType string public.app-category.photography" "$PLIST"
@@ -32,8 +32,10 @@ case "$PLATFORM" in
     pb -c "Add :UISupportsDocumentBrowser bool true" "$PLIST"
     pb -c "Add :UIFileSharingEnabled bool true" "$PLIST"
     pb -c "Add :LSSupportsOpeningDocumentsInPlace bool true" "$PLIST"
+    # FFmpeg needs iOS 14 or newer.
+    sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g' ios/Runner.xcodeproj/project.pbxproj
     if [ -f ios/Podfile ]; then
-      sed -i '' -E "s/^#? *platform :ios, '[0-9.]+'/platform :ios, '13.0'/" ios/Podfile
+      sed -i '' -E "s/^#? *platform :ios, '[0-9.]+'/platform :ios, '14.0'/" ios/Podfile
     fi
     ;;
   macos)
@@ -47,10 +49,10 @@ case "$PLATFORM" in
       # Run outside the App Sandbox so downloads can go to any folder the user picks in Settings.
       pb -c "Set :com.apple.security.app-sandbox false" "$ENT"
     done
-    sed -i '' -E 's/^PRODUCT_NAME = .*/PRODUCT_NAME = RA7ALSAVER/' macos/Runner/Configs/AppInfo.xcconfig
-    pb -c "Set :CFBundleName RA7AL SAVER" macos/Runner/Info.plist
+    sed -i '' -E 's/^PRODUCT_NAME = .*/PRODUCT_NAME = RA7ALFilesDownloader/' macos/Runner/Configs/AppInfo.xcconfig
+    pb -c "Set :CFBundleName RA7AL Files Downloader" macos/Runner/Info.plist
     pb -c "Delete :CFBundleDisplayName" macos/Runner/Info.plist
-    pb -c "Add :CFBundleDisplayName string RA7AL SAVER" macos/Runner/Info.plist
+    pb -c "Add :CFBundleDisplayName string RA7AL Files Downloader" macos/Runner/Info.plist
     sed -i '' -E 's/MACOSX_DEPLOYMENT_TARGET = 10\.[0-9]+;/MACOSX_DEPLOYMENT_TARGET = 10.15;/g' macos/Runner.xcodeproj/project.pbxproj
     if [ -f macos/Podfile ]; then
       sed -i '' -E "s/^#? *platform :osx, '[0-9.]+'/platform :osx, '10.15'/" macos/Podfile
@@ -63,9 +65,15 @@ p = "android/app/src/main/AndroidManifest.xml"
 s = open(p, encoding="utf-8").read()
 if "android.permission.INTERNET" not in s:
     s = s.replace("<application", '<uses-permission android:name="android.permission.INTERNET"/>\n    <application', 1)
-s = re.sub(r'android:label="[^"]*"', 'android:label="RA7AL SAVER"', s, count=1)
+s = re.sub(r'android:label="[^"]*"', 'android:label="RA7AL Files Downloader"', s, count=1)
 if "usesCleartextTraffic" not in s:
     s = s.replace("<application", '<application\n        android:usesCleartextTraffic="true"', 1)
+# FFmpeg needs Android 7.0 (API 24) or newer.
+import glob as _g
+for gp in _g.glob("android/app/build.gradle*"):
+    g = open(gp, encoding="utf-8").read()
+    g = re.sub(r"minSdk(Version)?\s*=?\s*flutter\.minSdkVersion", "minSdk = 24", g)
+    open(gp, "w", encoding="utf-8").write(g)
 # Gallery saving on Android 9 and older.
 if "WRITE_EXTERNAL_STORAGE" not in s:
     s = s.replace("<application",
@@ -85,8 +93,8 @@ PY
     ;;
   windows)
     # Window title and executable description.
-    sed -i 's/L"ra7alsaver"/L"RA7AL SAVER"/' windows/runner/main.cpp || true
-    sed -i 's/"FileDescription", "ra7alsaver"/"FileDescription", "RA7AL SAVER"/; s/"ProductName", "ra7alsaver"/"ProductName", "RA7AL SAVER"/' windows/runner/Runner.rc || true
+    sed -i 's/L"ra7alsaver"/L"RA7AL Files Downloader"/' windows/runner/main.cpp || true
+    sed -i 's/"FileDescription", "ra7alsaver"/"FileDescription", "RA7AL Files Downloader"/; s/"ProductName", "ra7alsaver"/"ProductName", "RA7AL Files Downloader"/' windows/runner/Runner.rc || true
     ;;
 esac
 

@@ -73,7 +73,7 @@ class BrandOverlay extends StatelessWidget {
                       duration: const Duration(milliseconds: 500),
                       switchInCurve: Curves.easeOut,
                       child: intro
-                          ? FittedBox(key: const ValueKey('full'), child: AnimatedBrand(service: 'SAVER', size: big))
+                          ? FittedBox(key: const ValueKey('full'), child: AnimatedBrand(service: 'FILES DOWNLOADER', size: big))
                           : MiniBrand(key: const ValueKey('mini'), height: miniH),
                     ),
                   ),
