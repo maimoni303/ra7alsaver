@@ -68,15 +68,27 @@ Future<void> typeInto(WidgetTester t, Finder field, String text) async {
   await t.pump(const Duration(milliseconds: 200));
 }
 
-/// Scrolls the lists on screen until [f] is built (long lists only build what is visible).
-Future<void> reveal(WidgetTester t, Finder f) async {
-  for (var i = 0; i < 40 && f.evaluate().isEmpty; i++) {
-    final lists = find.byType(Scrollable);
-    if (lists.evaluate().isEmpty) break;
-    await t.drag(lists.last, const Offset(0, -300), warnIfMissed: false);
-    await t.pump(const Duration(milliseconds: 250));
+bool present(Finder f) {
+  try {
+    return f.evaluate().isNotEmpty;
+  } catch (_) {
+    return false; // .first / .last of nothing
   }
-  if (f.evaluate().isEmpty) throw TestFailure('Not on screen: ${f.describeMatch(Plurality.one)}');
+}
+
+/// Scrolls the (vertical) list on screen until [f] is built — long lists only build
+/// what is visible. Tries downwards first, then back up.
+Future<void> reveal(WidgetTester t, Finder f) async {
+  for (final dy in [-300.0, 300.0]) {
+    for (var i = 0; i < 40 && !present(f); i++) {
+      final lists = find.byWidgetPredicate((w) => w is Scrollable && (w.axisDirection == AxisDirection.down || w.axisDirection == AxisDirection.up));
+      if (!present(lists)) break;
+      await t.drag(lists.last, Offset(0, dy), warnIfMissed: false);
+      await t.pump(const Duration(milliseconds: 250));
+    }
+    if (present(f)) return;
+  }
+  throw TestFailure('Not on screen: ${f.describeMatch(Plurality.one)}');
 }
 
 Future<void> tap(WidgetTester t, Finder f) async {
@@ -235,23 +247,24 @@ void main() {
       saved = 0;
     });
 
-    // ---------------- Converter (every target format)
-    final mp4 = await newest('mp4');
+    // ---------------- Converter (every target format) — from the 50-second sample
+    final mp4 = File('${(await FileStore.dir()).path}${Platform.pathSeparator}sample.mp4');
+    if (!await mp4.exists()) throw TestFailure('sample.mp4 was not saved');
     for (final ext in ['mov', 'webm', 'avi', 'gif', 'mkv', 'wav', 'flac', 'opus', 'ogg', 'aac', 'mp3', 'm4a', 'jpg']) {
       await step('Converter: MP4 → ${ext.toUpperCase()}', () async {
-        final out = await state().convertFile(mp4, ext);
+        final out = await state().convertFile(mp4, ext).timeout(const Duration(minutes: 6));
         final p = await MediaTools.probe(out.path);
         if (await out.length() == 0 || p.streams.isEmpty) throw TestFailure('empty result');
       });
     }
     for (final ext in ['png', 'webp', 'bmp']) {
       await step('Converter: JPG → ${ext.toUpperCase()}', () async {
-        final out = await state().convertFile(await newest('jpg'), ext);
+        final out = await state().convertFile(await newest('jpg'), ext).timeout(const Duration(minutes: 2));
         if (await out.length() == 0) throw TestFailure('empty result');
       });
     }
     await step('Converter: MP3 → WAV', () async {
-      final out = await state().convertFile(await newest('mp3'), 'wav');
+      final out = await state().convertFile(await newest('mp3'), 'wav').timeout(const Duration(minutes: 2));
       final p = await MediaTools.probe(out.path);
       if (!p.streams.join().contains('pcm_s16le')) throw TestFailure('streams ${p.streams}');
     });
@@ -259,7 +272,7 @@ void main() {
     // ---------------- Ringtone rules
     await step('Ringtone: iPhone .m4r is AAC, ≤ 40 s, < 1 MB even from a 50 s clip', () async {
       final out = await FileStore.reserve('tone_test.m4r');
-      await MediaTools.ringtone(mp4.path, out.path, start: 0, length: 50, iphone: true);
+      await MediaTools.ringtone(mp4.path, out.path, start: 0, length: 50, iphone: true).timeout(const Duration(minutes: 2));
       final p = await MediaTools.probe(out.path);
       if (p.streams.join() != 'audio:aac') throw TestFailure('streams ${p.streams}');
       if (p.duration > 40.2) throw TestFailure('duration ${p.duration}');
@@ -269,7 +282,7 @@ void main() {
     });
     await step('Ringtone: Android .mp3 ≤ 60 s', () async {
       final out = await FileStore.reserve('tone_test.mp3');
-      await MediaTools.ringtone(mp4.path, out.path, start: 5, length: 20, iphone: false);
+      await MediaTools.ringtone(mp4.path, out.path, start: 5, length: 20, iphone: false).timeout(const Duration(minutes: 2));
       final p = await MediaTools.probe(out.path);
       if (p.streams.join() != 'audio:mp3' || (p.duration - 20).abs() > 0.6) throw TestFailure('${p.streams} ${p.duration}');
     });

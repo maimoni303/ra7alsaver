@@ -86,9 +86,28 @@ class Extractor {
   // ---------------------------------------------------------------- YouTube
   static Future<List<MediaItem>> _youtube(String link, SaveMode mode, String quality) async {
     final id = VideoId(link);
-    var manifest = await _yt.videos.streams.getManifest(id);
-    if (manifest.streams.isEmpty) {
-      manifest = await _yt.videos.streams.getManifest(id, ytClients: [YoutubeApiClient.ios, YoutubeApiClient.androidVr]);
+    // YouTube answers differently per app "client"; try several before giving up.
+    StreamManifest? manifest;
+    Object? lastError;
+    for (final clients in <List<YoutubeApiClient>?>[
+      null,
+      [YoutubeApiClient.ios, YoutubeApiClient.androidVr],
+      [YoutubeApiClient.tv],
+      [YoutubeApiClient.mweb, YoutubeApiClient.safari],
+    ]) {
+      try {
+        final m = await _yt.videos.streams.getManifest(id, ytClients: clients);
+        if (m.streams.isNotEmpty) {
+          manifest = m;
+          break;
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (manifest == null) {
+      if (lastError is VideoUnplayableException) throw lastError;
+      throw CobaltException(tx('يوتيوب رفض الطلب، أعد المحاولة بعد قليل', 'YouTube refused the request, try again shortly'));
     }
     var title = id.value;
     try {
