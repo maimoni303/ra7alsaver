@@ -103,12 +103,12 @@ Preparing "Install CMake 3.22.1 v.3.22.1".
 Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
 "Install CMake 3.22.1 v.3.22.1" complete.
 "Install CMake 3.22.1 v.3.22.1" finished.
-Running Gradle task 'assembleDebug'...                            297.3s
+Running Gradle task 'assembleDebug'...                            376.9s
 ✓ Built build/app/outputs/flutter-apk/app-debug.apk
-Installing build/app/outputs/flutter-apk/app-debug.apk...        1,681ms
+Installing build/app/outputs/flutter-apk/app-debug.apk...        2,416ms
 00:00 +0: (setUpAll)
 00:00 +0: RA7AL Files Downloader — every page, tool and button
-media_kit: NativeReferenceHolder: Allocated 139802323784560
+media_kit: NativeReferenceHolder: Allocated 133403178660720
 Loading ffmpeg-kit-flutter.
 Loaded ffmpeg-kit-flutter-android-full-gpl-x86_64-8.0.0.
 PASS  Save page: plain MP4 download  
@@ -143,9 +143,9 @@ PASS  My files: list, filters and refresh
 media_kit: Emulator detected.
 media_kit: Enforcing S/W rendering.
 VideoOutput.Resize
-{rect: {top: 0, left: 0, width: 320, height: 240}, wid: 13162, handle: 139803666797728, id: 0}
+{rect: {top: 0, left: 0, width: 320, height: 240}, wid: 13234, handle: 133406668888288, id: 0}
 VideoOutput.Resize
-{rect: {top: 0, left: 0, width: 320, height: 240}, wid: 0, handle: 139803666797728, id: 0}
+{rect: {top: 0, left: 0, width: 320, height: 240}, wid: 0, handle: 133406668888288, id: 0}
 PASS  My files: open a video in the player  
 PASS  My files: "Make a ringtone" — listen to the part, make iPhone and Android tones, play the result  
 PASS  My files: rename  
@@ -168,11 +168,11 @@ Please report this issue on GitHub in that case.)
 <asynchronous suspension>
 #1      Future.timeout.<anonymous closure> (dart:async/future_impl.dart:1061:7)
 <asynchronous suspension>
-#2      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:23)
+#2      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:444:23)
 <asynchronous suspension>
-#3      step (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:106:5)
+#3      step (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:107:5)
 <asynchronous suspension>
-#4      main.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:442:7)
+#4      main.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -191,11 +191,11 @@ Please report this issue on GitHub in that case.)
 <asynchronous suspension>
 #1      Future.timeout.<anonymous closure> (dart:async/future_impl.dart:1061:7)
 <asynchronous suspension>
-#2      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:23)
+#2      main.<anonymous closure>.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:444:23)
 <asynchronous suspension>
-#3      step (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:106:5)
+#3      step (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:107:5)
 <asynchronous suspension>
-#4      main.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:442:7)
+#4      main.<anonymous closure> (file:///home/runner/work/ra7alsaver/ra7alsaver/integration_test/app_test.dart:443:7)
 <asynchronous suspension>
 #5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
 <asynchronous suspension>
@@ -257,5 +257,5 @@ PASS | Link reader: direct file and stream links |
 PASS | Link reader: unsupported page gives a clear message | 
 Passed 44 of 46
 
-02:26 +1: (tearDownAll)
-02:27 +1: All tests passed!
+02:41 +1: (tearDownAll)
+02:42 +1: All tests passed!
