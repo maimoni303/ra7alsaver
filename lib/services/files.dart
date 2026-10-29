@@ -14,13 +14,45 @@ class SavedFile {
   String get name => file.uri.pathSegments.last;
 }
 
-/// Private download folder ("ملفاتي") inside the app's own storage.
+/// Download folder ("ملفاتي"): the app's own storage by default, or a folder the user chose.
 class FileStore {
+  /// Folder chosen in Settings; empty = the app's own folder.
+  static String customDir = '';
+
   static Future<Directory> dir() async {
-    final base = await getApplicationDocumentsDirectory();
-    final d = Directory('${base.path}${Platform.pathSeparator}RA7AL Saver');
+    final d = customDir.isNotEmpty ? Directory(customDir) : await appDir();
     if (!await d.exists()) await d.create(recursive: true);
     return d;
+  }
+
+  /// The app's private folder (on iPhone it shows in the Files app under "On My iPhone").
+  static Future<Directory> appDir() async {
+    final base = await getApplicationDocumentsDirectory();
+    return Directory('${base.path}${Platform.pathSeparator}RA7AL Saver');
+  }
+
+  /// A "RA7AL" folder inside the device's Downloads folder, or null where there is none (iPhone).
+  static Future<String?> downloadsDir() async {
+    if (Platform.isIOS) return null;
+    if (Platform.isAndroid) return '/storage/emulated/0/Download/RA7AL';
+    final d = await getDownloadsDirectory();
+    return d == null ? null : '${d.path}${Platform.pathSeparator}RA7AL';
+  }
+
+  /// Creates [path] if needed and proves the app can write, rename and delete there.
+  /// Returns null when it can, otherwise the reason.
+  static Future<String?> checkWritable(String path) async {
+    try {
+      final d = Directory(path);
+      if (!await d.exists()) await d.create(recursive: true);
+      final probe = File('${d.path}${Platform.pathSeparator}.ra7al_test_${DateTime.now().millisecondsSinceEpoch}');
+      await probe.writeAsString('ok', flush: true);
+      final moved = await probe.rename('${probe.path}.x');
+      await moved.delete();
+      return null;
+    } catch (e) {
+      return e is FileSystemException ? (e.osError?.message ?? e.message) : e.toString();
+    }
   }
 
   static String typeOf(String name) {
@@ -36,7 +68,8 @@ class FileStore {
     final d = await dir();
     final out = <SavedFile>[];
     await for (final e in d.list()) {
-      if (e is File && !e.path.endsWith('.part')) {
+      final n = e.uri.pathSegments.last;
+      if (e is File && !n.endsWith('.part') && !n.startsWith('.')) {
         final st = await e.stat();
         out.add(SavedFile(e, typeOf(e.path), st.size, st.modified));
       }

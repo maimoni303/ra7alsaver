@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n.dart';
@@ -10,12 +12,17 @@ import '../l10n.dart';
 import '../services/cobalt.dart';
 import '../services/files.dart';
 
+/// Where downloads go: the app's folder, the device Downloads folder, a folder the user
+/// picked, or (iPhone) ask for a destination in the Files app after each download.
+enum SaveLocation { app, downloads, custom, ask }
+
 class DownloadTask {
   final MediaItem item;
   double progress = 0; // -1 = unknown size
   String? error;
   File? file;
   bool savedToGallery = false;
+  bool exported = false;
   DownloadTask(this.item);
   bool get done => file != null;
 }
@@ -33,6 +40,14 @@ class SaverState extends ChangeNotifier {
   bool lockFiles = false;
   bool filesUnlocked = false;
   bool english = false;
+  SaveLocation saveLocation = SaveLocation.app;
+  String customPath = '';
+
+  /// Shown in Settings when the saved folder could not be used at start-up.
+  String? locationWarning;
+
+  /// Folder downloads currently go to (for display).
+  String saveFolder = '';
 
   final List<DownloadTask> tasks = [];
   List<SavedFile> files = [];
@@ -50,6 +65,14 @@ class SaverState extends ChangeNotifier {
     lockFiles = _p.getBool('lockFiles') ?? false;
     english = _p.getBool('english') ?? false;
     kEn = english;
+    saveLocation = SaveLocation.values[(_p.getInt('saveLocation') ?? 0).clamp(0, SaveLocation.values.length - 1)];
+    customPath = _p.getString('customPath') ?? '';
+    if (Platform.isMacOS) {
+      try {
+        await FilePicker.skipEntitlementsChecks(); // the macOS build runs outside the App Sandbox
+      } catch (_) {}
+    }
+    await _applyLocation(startup: true);
     await refreshFiles();
     ready = true;
     notifyListeners();
@@ -95,6 +118,103 @@ class SaverState extends ChangeNotifier {
     _p.setBool('autoGallery', v);
     notifyListeners();
   }
+
+  // ---- save location ----
+  /// Whether this device can save straight into a folder outside the app.
+  bool get canPickFolder => !Platform.isIOS;
+
+  Future<String?> _pathFor(SaveLocation l) async => switch (l) {
+        SaveLocation.downloads => await FileStore.downloadsDir(),
+        SaveLocation.custom => customPath.isEmpty ? null : customPath,
+        _ => null,
+      };
+
+  Future<void> _applyLocation({bool startup = false}) async {
+    if ((saveLocation == SaveLocation.ask && canPickFolder) ||
+        (saveLocation != SaveLocation.app && saveLocation != SaveLocation.ask && !canPickFolder)) {
+      saveLocation = SaveLocation.app;
+    }
+    final path = await _pathFor(saveLocation);
+    if (path != null) {
+      final err = await FileStore.checkWritable(path);
+      if (err != null) {
+        if (startup) {
+          locationWarning = tx('تعذّر الوصول إلى المجلد «$path»، فرجعنا للحفظ داخل التطبيق. اختر المجلد من جديد.',
+              'Could not reach “$path”, so saving went back to the app folder. Choose the folder again.');
+        }
+        saveLocation = SaveLocation.app;
+      }
+    }
+    FileStore.customDir = saveLocation == SaveLocation.app || saveLocation == SaveLocation.ask ? '' : (path ?? '');
+    saveFolder = (await FileStore.dir()).path;
+  }
+
+  /// Switches to [l] (for [SaveLocation.custom], to [path]). Returns null on success, otherwise why not.
+  Future<String?> setSaveLocation(SaveLocation l, {String? path}) async {
+    final target = l == SaveLocation.custom ? (path ?? customPath) : await _pathFor(l);
+    if (l != SaveLocation.app && l != SaveLocation.ask) {
+      if (target == null || target.isEmpty) return tx('لا يوجد مجلد', 'No folder');
+      final err = await FileStore.checkWritable(target);
+      if (err != null) {
+        return tx('لا يمكن الحفظ في هذا المجلد ($err). جرّب مجلد التنزيلات أو مجلداً داخله.',
+            'Cannot save in this folder ($err). Try the Downloads folder or a folder inside it.');
+      }
+    }
+    if (l == SaveLocation.custom) {
+      customPath = target!;
+      await _p.setString('customPath', customPath);
+    }
+    saveLocation = l;
+    locationWarning = null;
+    await _p.setInt('saveLocation', l.index);
+    await _applyLocation();
+    await refreshFiles();
+    return null;
+  }
+
+  /// Opens the system folder picker and switches to the chosen folder.
+  /// Returns null on success or when cancelled, otherwise why it failed.
+  Future<String?> pickSaveFolder() async {
+    final picked = await FilePicker.getDirectoryPath(
+      dialogTitle: tx('اختر مجلد الحفظ', 'Choose the download folder'),
+      initialDirectory: saveFolder.isEmpty ? null : saveFolder,
+    );
+    if (picked == null || picked.isEmpty) return null;
+    return setSaveLocation(SaveLocation.custom, path: picked);
+  }
+
+  Future<void> _exports = Future.value();
+
+  /// iPhone "ask every time": lets the user pick a destination in the Files app.
+  /// Runs one at a time, so several finished downloads don't open several pickers at once.
+  Future<bool> exportFile(File f) {
+    final done = _exports.then((_) => _exportNow(f));
+    _exports = done.then((_) {}, onError: (_) {});
+    return done;
+  }
+
+  Future<bool> _exportNow(File f) async {
+    try {
+      final name = f.uri.pathSegments.last;
+      // The document picker needs the whole file in memory; very large files go through the share sheet ("Save to Files").
+      if (await f.length() <= 300 * 1024 * 1024) {
+        final uri = await FilePicker.saveFile(fileName: name, bytes: await f.readAsBytes(), mimeType: _mime(name));
+        return uri != null;
+      }
+      final r = await Share.shareXFiles([XFile(f.path)]);
+      return r.status == ShareResultStatus.success;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static String _mime(String name) => switch (FileStore.typeOf(name)) {
+        'video' => 'video/mp4',
+        'audio' => 'audio/mpeg',
+        'photo' => 'image/jpeg',
+        'gif' => 'image/gif',
+        _ => 'application/octet-stream',
+      };
 
   // ---- lock ----
   final _auth = LocalAuthentication();
@@ -163,6 +283,10 @@ class SaverState extends ChangeNotifier {
             t.savedToGallery = await saveToGallery(t.file!);
           }
           await refreshFiles();
+          if (saveLocation == SaveLocation.ask) {
+            notifyListeners();
+            t.exported = await exportFile(t.file!);
+          }
         } catch (e) {
           t.error = tx('فشل التحميل: $e', 'Download failed: $e');
         }

@@ -28,6 +28,97 @@ class _SettingsPageState extends State<SettingsPage> {
   late final _key = TextEditingController(text: context.read<SaverState>().apiKey);
   String? _status;
   bool _ok = false, _testing = false;
+  bool _picking = false;
+  String? _folderError;
+
+  Future<void> _setLocation(Future<String?> Function() change) async {
+    setState(() {
+      _picking = true;
+      _folderError = null;
+    });
+    final err = await change();
+    if (mounted) {
+      setState(() {
+        _picking = false;
+        _folderError = err;
+      });
+    }
+  }
+
+  Widget _locationCard(SaverState s, Ra7al c) {
+    Widget option(SaveLocation l, IconData icon, String title, String sub, {VoidCallback? onTap}) {
+      final on = s.saveLocation == l;
+      return InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: _picking ? null : (onTap ?? () => _setLocation(() => s.setSaveLocation(l))),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [
+            Icon(on ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: on ? c.accent : c.faint),
+            const SizedBox(width: 10),
+            Icon(icon, color: on ? c.accent : c.muted, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(fontWeight: on ? FontWeight.w700 : FontWeight.w500)),
+                Text(sub, style: TextStyle(color: c.faint, fontSize: 12)),
+              ]),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    final showPath = s.saveLocation != SaveLocation.ask && s.saveFolder.isNotEmpty;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(tx('موقع حفظ الملفات', 'Where files are saved'), style: const TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      option(
+        SaveLocation.app,
+        Icons.lock_outline_rounded,
+        tx('داخل التطبيق', 'Inside the app'),
+        s.canPickFolder
+            ? tx('مجلد خاص بالتطبيق (الافتراضي)', 'The app’s private folder (default)')
+            : tx('تجدها أيضاً في تطبيق «الملفات» ← على الـ iPhone ← RA7AL SAVER', 'Also in the Files app → On My iPhone → RA7AL SAVER'),
+      ),
+      if (s.canPickFolder) ...[
+        option(SaveLocation.downloads, Icons.download_rounded, tx('مجلد التنزيلات', 'Downloads folder'),
+            tx('مجلد «RA7AL» داخل التنزيلات', 'A “RA7AL” folder inside Downloads')),
+        option(
+          SaveLocation.custom,
+          Icons.folder_open_rounded,
+          tx('مجلد أختاره بنفسي…', 'A folder I choose…'),
+          s.customPath.isEmpty ? tx('اضغط لاختيار المجلد', 'Tap to choose the folder') : s.customPath,
+          onTap: () => _setLocation(s.pickSaveFolder),
+        ),
+      ] else
+        option(SaveLocation.ask, Icons.drive_folder_upload_rounded, tx('اسألني أين أحفظ بعد كل تحميل', 'Ask me where to save after each download'),
+            tx('تختار المجلد في «الملفات» أو iCloud، وتبقى نسخة في «ملفاتي»', 'Pick a folder in Files or iCloud; a copy stays in My files')),
+      if (_picking) const Padding(padding: EdgeInsets.only(top: 6), child: LinearProgressIndicator(minHeight: 3)),
+      if (showPath) ...[
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(color: c.input, borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            Icon(Icons.folder_rounded, size: 18, color: c.muted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(s.saveFolder,
+                  textDirection: TextDirection.ltr, style: TextStyle(color: c.muted, fontSize: 12, fontFamily: 'monospace')),
+            ),
+            if (s.saveLocation == SaveLocation.custom)
+              TextButton(onPressed: _picking ? null : () => _setLocation(s.pickSaveFolder), child: Text(tx('تغيير', 'Change'))),
+          ]),
+        ),
+      ],
+      if (_folderError != null || s.locationWarning != null) ...[
+        const SizedBox(height: 8),
+        Text(_folderError ?? s.locationWarning!, style: TextStyle(color: c.live, fontSize: 12, height: 1.5)),
+      ],
+      Divider(height: 24, color: c.line),
+    ]);
+  }
 
   Future<void> _test() async {
     final s = context.read<SaverState>();
@@ -151,6 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
             head(tx('الحفظ', 'Saving')),
             card([
+              _locationCard(s, c),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: s.autoGallery,

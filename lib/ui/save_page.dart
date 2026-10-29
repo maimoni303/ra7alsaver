@@ -267,7 +267,12 @@ class _TaskTile extends StatelessWidget {
             if (t.error != null)
               Text(t.error!, style: TextStyle(color: c.live, fontSize: 12))
             else if (t.done)
-              Text(t.savedToGallery ? tx('تم الحفظ في «ملفاتي» وفي الصور ✓', 'Saved to My files and Photos ✓') : tx('تم الحفظ في «ملفاتي» ✓', 'Saved to My files ✓'),
+              Text(
+                  [
+                    t.exported ? tx('تم الحفظ في المكان الذي اخترته', 'Saved where you chose') : tx('تم الحفظ في «ملفاتي»', 'Saved to My files'),
+                    if (t.savedToGallery) tx('وفي الصور', 'and Photos'),
+                  ].join(' ') +
+                      ' ✓',
                   style: TextStyle(color: c.accent, fontSize: 12))
             else
               ClipRRect(

@@ -44,6 +44,8 @@ case "$PLATFORM" in
       pb -c "Add :com.apple.security.network.client bool true" "$ENT"
       pb -c "Set :com.apple.security.network.client true" "$ENT"
       pb -c "Add :com.apple.security.personal-information.photos-library bool true" "$ENT"
+      # Run outside the App Sandbox so downloads can go to any folder the user picks in Settings.
+      pb -c "Set :com.apple.security.app-sandbox false" "$ENT"
     done
     sed -i '' -E 's/^PRODUCT_NAME = .*/PRODUCT_NAME = RA7ALSAVER/' macos/Runner/Configs/AppInfo.xcconfig
     pb -c "Set :CFBundleName RA7AL SAVER" macos/Runner/Info.plist
